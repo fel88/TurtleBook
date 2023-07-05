@@ -109,12 +109,96 @@ void SDCard_ReadCB(const char *Name)
   cbPage+=cnt;    
 }
 
-void nextPageCB()
+void fastNextPageCB()
 {
   UWORD X, Y;
   cbPage++;
+  UBYTE Data_Black, Data;
+  EPD_5IN83_SendCommand(0x10);
+  UBYTE ReadBuff[1] = {0};
+    for(Y = 0; Y < heigth; Y++) {//Total display column
+
+        for(X = 0 ; X < Bmp_Width_Byte; X++) {//Show a line in the line
+          file.read(ReadBuff, 1);
+            //ReadBuff[0]=reverse(ReadBuff[0]);
+            if(X < Image_Width_Byte) { //bmp
+              if(Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
+
+               Data_Black= ReadBuff[0];
+             } else {
+              Data_Black= ~ReadBuff[0];
+            }
+            for(UBYTE k = 0; k < 8; k++) {
+              if(Data_Black & 0x80)
+                Data = 0x00;
+              else
+                Data = 0x03;
+              Data <<= 4;
+              Data_Black <<= 1;
+              k++;
+              if(Data_Black & 0x80)
+                Data |= 0x00;
+              else
+                Data |= 0x03;
+              Data_Black <<= 1;
+              EPD_5IN83_SendData(Data);
+            }
+          }
+        }
+        //bmpFile.read(ReadBuff, 1);       
+      }
+
+}
+
+void sendToDisplay(void)
+{
+    UBYTE Data_Black, Data;
+    UWORD Width, Height;
+    Width = (EPD_5IN83_WIDTH % 8 == 0)? (EPD_5IN83_WIDTH / 8 ): (EPD_5IN83_WIDTH / 8 + 1);
+    Height = EPD_5IN83_HEIGHT;
+
+    EPD_5IN83_SendCommand(0x10);
+    for (UWORD j = 0; j < Height; j++) {
+        for (UWORD i = 0; i < Width; i++) {
+            Data_Black = SPIRAM_RD_Byte(i + j * Width);
+            for(UBYTE k = 0; k < 8; k++) {
+                if(Data_Black & 0x80)
+                    Data = 0x00;
+                else
+                    Data = 0x03;
+                Data <<= 4;
+                Data_Black <<= 1;
+                k++;
+                if(Data_Black & 0x80)
+                    Data |= 0x00;
+                else
+                    Data |= 0x03;
+                Data_Black <<= 1;
+                EPD_5IN83_SendData(Data);
+            }
+        }
+    }
+    //EPD_5IN83_TurnOnDisplay();
+}
+
+void fastDisplayBuffer(){
+   EPD_5IN83_TurnOnDisplay();
+}
+
+void displayBuffer(){
+    EPD_5IN83_Display();
+    //EPD_5IN83_Sleep();
+}
+
+void clearOled(){
    u8g2.clearBuffer();          // clear the internal memory
    u8g2.sendBuffer();          // transfer internal memory to the display
+}
+
+void nextPageCB()
+{
+  UWORD X, Y;
+  cbPage++;   
    UBYTE ReadBuff[1] = {0};
     for(Y = 0; Y < heigth; Y++) {//Total display column
 
@@ -129,11 +213,10 @@ void nextPageCB()
             }
           }        
         }
-        EPD_5IN83_Display();
-      }
+}
 
 
-      void skipPage(){
+void skipPage(){
 
    u8g2.clearBuffer();          // clear the internal memory
    u8g2.sendBuffer();          // transfer internal memory to the display
@@ -454,7 +537,7 @@ void drawGotoPageMenu(){
 
    file.close();
    drawFileList();
- } if(bookMenuPos==1){
+ } else if(bookMenuPos==1){
   menuMode=4;
   gotoPage=0;
   gotoPageMenu=0;
@@ -466,11 +549,32 @@ if(bookMenuPos==0){
       u8g2.clearBuffer();          // clear the internal memory
 
       u8g2.sendBuffer();  
+  }else   if(bookMenuPos==3){//print page info
+    menuMode=2;
+      u8g2.clearBuffer();          // clear the internal memory   
+   u8g2.sendBuffer();  
+
+   nextPageCB();
+     Paint_DrawString_EN(10, 310, currentBook.c_str(), &Font24, BLACK,WHITE );
+    
+    Paint_DrawNum(10, 360, cbPage, &Font24, BLACK, WHITE);
+
+    //3.Refresh the picture in RAM to e-Paper
+  //  DEBUG("EPD_5IN83_Display\r\n");
+    EPD_5IN83_Display();
+    
     }
   }else
   if(menuMode==2){
-    nextPageCB();
-  }else
+   //EPD_5IN83_Init();
+  clearOled();
+  //displayBuffer();
+  fastDisplayBuffer();
+  //nextPageCB();  
+  //sendToDisplay();
+  fastNextPageCB();
+//  EPD_5IN83_Sleep();  
+}else
   if(menuMode==0){
     if(isDir){
       root_dir+=currentBook+"/";
@@ -481,7 +585,13 @@ if(bookMenuPos==0){
         menuMode=2;
         SDCard_ReadCB((root_dir+currentBook).c_str()); 
         cbPage=0;
-        nextPageCB();
+        clearOled();
+   fastNextPageCB();
+  // nextPageCB();
+   fastDisplayBuffer();
+  // nextPageCB();
+    //sendToDisplay();
+     fastNextPageCB();
       }
       if(currentBook.endsWith(".TXT")){
        file = SD.open((root_dir+currentBook),O_READ ); 
@@ -509,8 +619,11 @@ if(bookMenuPos==0){
    if(currentBook.endsWith(".CB")){
    //resetCB();
      cbPage=0;
+   clearOled();
      skipPagesCB(gotoPage);
-     nextPageCB();
+   fastNextPageCB();
+   fastDisplayBuffer();
+   fastNextPageCB();
      menuMode=2;
    }else if(currentBook.endsWith(".TXT")){
     page=gotoPage-1; 
@@ -545,6 +658,9 @@ void drawBookMenu(){
   }else
   if(bookMenuPos==2)
     u8g2.drawStr(0,16,"close book"); 
+ else
+   if(bookMenuPos==3)
+      u8g2.drawStr(0,16,"print page info"); 
   u8g2.sendBuffer();   
 }
 
@@ -570,7 +686,7 @@ void myISR2()
  }else
  if(menuMode==3){
   bookMenuPos++;
-  if(bookMenuPos==3)bookMenuPos=0;    
+  if(bookMenuPos==4)bookMenuPos=0;    
   drawBookMenu();
 }else
 if(menuMode==2){
