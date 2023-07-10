@@ -17,6 +17,10 @@
 #endif
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ SCL, /* data=*/ SDA, /* reset=*/ U8X8_PIN_NONE);   // All Boards without Reset of the Display
 
+
+const int max_characters = 80;
+char f_name[max_characters];
+
 const int buttonPin = 19;     // the number of the pushbutton pin
 const int buttonPin3 = 18;     // the number of the pushbutton pin
 //const int buttonPin2 = 35;     // the number of the pushbutton pin
@@ -42,13 +46,16 @@ UWORD Image_Width_Byte;
 UWORD Bmp_Width_Byte ;
 int width;
 int heigth;
-
+     extern SdFat sd;
 void SDCard_ReadCB(const char *Name)
 {  
-  file = SD.open(Name,O_READ );
+  
+    
+    //file = sd.open(Name,O_READ );
 
     //Serial.println(file.size());
-  if (!file) {
+    if (! file.open(Name,O_RDONLY)) {
+    //  Serial.println("not found");
     DEBUG("not find : ");
     DEBUG(Name);
     DEBUG("\n");
@@ -108,7 +115,7 @@ void SDCard_ReadCB(const char *Name)
   file.seek(offset);
   cbPage+=cnt;    
 }
-
+UBYTE _readBuff[801] = {0};
 void fastNextPageCB()
 {
   UWORD X, Y;
@@ -117,16 +124,18 @@ void fastNextPageCB()
   EPD_5IN83_SendCommand(0x10);
   UBYTE ReadBuff[1] = {0};
     for(Y = 0; Y < heigth; Y++) {//Total display column
-
+      file.read(_readBuff, Bmp_Width_Byte);
         for(X = 0 ; X < Bmp_Width_Byte; X++) {//Show a line in the line
-          file.read(ReadBuff, 1);
+            //file.read(ReadBuff, 1);
+            
+
             //ReadBuff[0]=reverse(ReadBuff[0]);
             if(X < Image_Width_Byte) { //bmp
               if(Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
 
-               Data_Black= ReadBuff[0];
+                   Data_Black= _readBuff[X];
              } else {
-              Data_Black= ~ReadBuff[0];
+                    Data_Black= ~_readBuff[X];
             }
             for(UBYTE k = 0; k < 8; k++) {
               if(Data_Black & 0x80)
@@ -195,8 +204,8 @@ void clearOled(){
    u8g2.sendBuffer();          // transfer internal memory to the display
 }
 
-void nextPageCB()
-{
+
+void nextPageCB(){
   UWORD X, Y;
   cbPage++;   
    UBYTE ReadBuff[1] = {0};
@@ -340,7 +349,8 @@ void drawFileList()
   u8g2.setContrast(0x5);
   
 
-  File root = SD.open(root_dir.c_str());
+    
+ File root = sd.open(root_dir.c_str());
   Paint_Clear(WHITE);
   int cntr=0;
   while (true) {
@@ -357,8 +367,14 @@ void drawFileList()
     
     //Serial.print(entry.name());
 
-    Paint_DrawString_EN(0, cntr*fontHeight, entry.name(), &Font12, WHITE, BLACK);
-  u8g2.drawStr(0,cntr*fontHeight,entry.name());  // write something to the internal memory
+
+entry.getName(f_name, max_characters);
+String filename = String(f_name);
+
+
+  Paint_DrawString_EN(0, cntr*fontHeight, filename.c_str(), &Font12, WHITE, BLACK);
+  u8g2.drawStr(0,cntr*fontHeight,filename.c_str());  // write something to the internal memory
+  
   
     
   cntr++;
@@ -399,7 +415,7 @@ void drawFileList()
 
 int getTotalFiles(){
 
- File root = SD.open(root_dir.c_str());
+ File root = sd.open(root_dir.c_str());
 
  int cntr=0;
  while (true) {
@@ -430,7 +446,7 @@ bool isDir=false;
 String getFileN(int n)
 {
   isDir=false;
-  File root = SD.open(root_dir.c_str());
+ File root = sd.open(root_dir.c_str());
   
   int cntr=0;
   while (true) {
@@ -450,7 +466,13 @@ String getFileN(int n)
       if (entry.isDirectory()) {
         isDir=true;
       }
-      return entry.name();
+      
+entry.getName(f_name, max_characters);
+String filename = String(f_name);
+
+ entry.close();
+      //return entry.name();
+      return filename;
     }
     cntr++; 
     
@@ -474,18 +496,22 @@ String getFileN(int n)
 int bookMenuPos=0;//0- back to book,1-goto page menu, 2- close book
 
 void drawGotoPageMenu(){
-   u8g2.clearBuffer();          // clear the internal memory
-   u8g2.setFont(u8g2_font_10x20_t_cyrillic ); // choose a suitable font
+   u8g2.clearBuffer();         
+   u8g2.setFont(u8g2_font_10x20_t_cyrillic ); 
    if(gotoPageMenu==0)
-     u8g2.drawStr(0,16,"incr +1");  
+   u8g2.drawStr(0,16,"up +1"); 
    if(gotoPageMenu==1)
-     u8g2.drawStr(0,16,"incr +10");  
+   u8g2.drawStr(0,16,"up +5"); 
    if(gotoPageMenu==2)
-     u8g2.drawStr(0,16,"incr +100"); 
+   u8g2.drawStr(0,16,"up +10");  
    if(gotoPageMenu==3)
-     u8g2.drawStr(0,16,"goto"); 
+   u8g2.drawStr(0,16,"up +100");  
    if(gotoPageMenu==4)
-     u8g2.drawStr(0,16,"back");  
+   u8g2.drawStr(0,16,"up -1");  
+   if(gotoPageMenu==5)
+   u8g2.drawStr(0,16,"goto");  
+   if(gotoPageMenu==6)
+   u8g2.drawStr(0,16,"back"); 
    
    
    u8g2.drawStr(0,32,"Page: "); 
@@ -515,7 +541,10 @@ void drawGotoPageMenu(){
        u8g2.drawStr(0,24,"PAGE: ");  // write something to the internal memory   
        u8g2.setCursor(64,24);
        u8g2.print(cbPage+1);
-     }else{
+   } else if(menuMode==4){
+    
+    }
+   else{
      u8g2.setFont(u8g2_font_cu12_t_cyrillic); // choose a suitable font
    u8g2.drawStr(0,16,"Wait..");  // write something to the internal memory 
  }
@@ -542,8 +571,18 @@ void drawGotoPageMenu(){
   gotoPage=0;
   gotoPageMenu=0;
   drawGotoPageMenu();
+    /*
+       u8g2.clearBuffer();          // clear the internal memory
+   u8g2.setFont(u8g2_font_cu12_t_cyrillic); // choose a suitable font
 
-}
+   u8g2.drawStr(0,16,"Wait..");  // write something to the internal memory
+   u8g2.sendBuffer();          // transfer internal memory to the display
+
+   //resetCB();
+   skipPagesCB(25);
+   nextPageCB();
+    menuMode=2;*/
+  }else
 if(bookMenuPos==0){
   menuMode=2;
       u8g2.clearBuffer();          // clear the internal memory
@@ -553,7 +592,9 @@ if(bookMenuPos==0){
     menuMode=2;
       u8g2.clearBuffer();          // clear the internal memory   
    u8g2.sendBuffer();  
-
+   int temp= cbPage-2;
+   cbPage=0;
+skipPagesCB(temp);
    nextPageCB();
      Paint_DrawString_EN(10, 310, currentBook.c_str(), &Font24, BLACK,WHITE );
     
@@ -563,6 +604,17 @@ if(bookMenuPos==0){
   //  DEBUG("EPD_5IN83_Display\r\n");
     EPD_5IN83_Display();
     
+  }else   if(bookMenuPos==4){//one page back
+    menuMode=2;
+    u8g2.clearBuffer();          // clear the internal memory   
+   u8g2.sendBuffer(); 
+   int temp= cbPage-3;
+   cbPage=0;
+skipPagesCB(temp);
+  fastNextPageCB();
+   fastDisplayBuffer();
+   fastNextPageCB();
+
     }
   }else
   if(menuMode==2){
@@ -581,7 +633,9 @@ if(bookMenuPos==0){
       currentBookIdx=0;
       drawFileList();
     }else{
-      if(currentBook.endsWith(".CB")){
+    
+
+  if(currentBook.endsWith(".CB") || currentBook.endsWith(".cb")){
         menuMode=2;
         SDCard_ReadCB((root_dir+currentBook).c_str()); 
         cbPage=0;
@@ -594,7 +648,7 @@ if(bookMenuPos==0){
      fastNextPageCB();
       }
       if(currentBook.endsWith(".TXT")){
-       file = SD.open((root_dir+currentBook),O_READ ); 
+   file = sd.open((root_dir+currentBook),O_READ ); 
        pages=file.size()/(rows*cols);
        menuMode=1;
        nextPage();
@@ -605,18 +659,24 @@ if(bookMenuPos==0){
       gotoPage++;
       drawGotoPageMenu();
     }else if(gotoPageMenu==1){
-      gotoPage+=10;
+    gotoPage+=5;
       drawGotoPageMenu();
     }else if(gotoPageMenu==2){
-     gotoPage+=100;
+    gotoPage+=10;
      drawGotoPageMenu();
    }else if(gotoPageMenu==3){
+     gotoPage+=100;
+    drawGotoPageMenu();
+    }else if(gotoPageMenu==4){
+    gotoPage-=1;
+    drawGotoPageMenu();
+  }else if(gotoPageMenu==5){
           u8g2.clearBuffer();          // clear the internal memory
    u8g2.setFont(u8g2_font_cu12_t_cyrillic); // choose a suitable font
 
    u8g2.drawStr(0,16,"Wait..");  // write something to the internal memory
    u8g2.sendBuffer();          // transfer internal memory to the display
-   if(currentBook.endsWith(".CB")){
+if(currentBook.endsWith(".CB") || currentBook.endsWith(".cb")){
    //resetCB();
      cbPage=0;
    clearOled();
@@ -635,7 +695,7 @@ if(bookMenuPos==0){
     nextPage();
     menuMode=1;
   }
-}else if(gotoPageMenu==4){
+  }else if(gotoPageMenu==6){
   menuMode=3;
   bookMenuPos=0;    
   drawBookMenu();
@@ -645,14 +705,14 @@ if(bookMenuPos==0){
 }
 
 void drawBookMenu(){
-   u8g2.clearBuffer();          // clear the internal memory
+   u8g2.clearBuffer();        
    u8g2.setFont(u8g2_font_cu12_t_cyrillic); // choose a suitable font
    if(bookMenuPos==0)
-    u8g2.drawStr(0,16,"back to book");  
+      u8g2.drawStr(0,16,"back to book");  
   if(bookMenuPos==1){
-    u8g2.drawStr(0,16,"goto page");  
+    u8g2.drawStr(0,16,"goto page"); 
     
-    u8g2.drawStr(0,32,"current: "); 
+    u8g2.drawStr(0,32,"current: ");  
     u8g2.setCursor(64,32);
     u8g2.print(cbPage+1);
   }else
@@ -661,6 +721,9 @@ void drawBookMenu(){
  else
    if(bookMenuPos==3)
       u8g2.drawStr(0,16,"print page info"); 
+   if(bookMenuPos==4)
+      u8g2.drawStr(0,16,"one page back"); 
+
   u8g2.sendBuffer();   
 }
 
@@ -686,7 +749,7 @@ void myISR2()
  }else
  if(menuMode==3){
   bookMenuPos++;
-  if(bookMenuPos==4)bookMenuPos=0;    
+    if(bookMenuPos==5)bookMenuPos=0;    
   drawBookMenu();
 }else
 if(menuMode==2){
@@ -719,7 +782,7 @@ if(menuMode==0)
     }
     else if(menuMode==4){
      gotoPageMenu++;
-     if(gotoPageMenu>=5){
+    if(gotoPageMenu>=7){
       gotoPageMenu=0;
     }
     drawGotoPageMenu();
