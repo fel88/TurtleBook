@@ -41,6 +41,10 @@ int gap = 3;
 //int fontWidth=11;//11 for font16, 17 for font24, 7 for font12
 int fontWidth = 7;  //11 for font16, 17 for font24, 7 for font12
 
+int bookMenuPos = 0;  //0- back to book,1-goto page menu, 2- close book
+int bootMenuPos = 0;  //0 - load bookmarks list, 1- load files list
+int bookmarkMenuPos = 0;
+int totalBookmarks = 0;
 
 UWORD Image_Width_Byte;
 UWORD Bmp_Width_Byte;
@@ -60,7 +64,7 @@ int buttonState2 = 0;  // variable for reading the pushbutton status
 int cbPage = 0;
 String currentBook = "";
 int currentBookIdx = 0;
-int menuMode = 0;  //0-files, 1-text book inside, 2- CB book inside, 3-book menu(goto page,back to files), 4-goto page menu
+int menuMode = 0;  //0-files, 1-text book inside, 2- CB book inside, 3-book menu(goto page,back to files), 4-goto page menu, 5-boot menu, 6 - bookmarks list
 int gotoPage = 0;
 int gotoPageMenu = 0;
 
@@ -397,7 +401,16 @@ void nextPage() {
   page++;
 }
 
+bool fileExist(const char* path) {
 
+  File fileB = sd.open(path, MFILE_READ);
+  if (fileB) {
+    fileB.close();
+  } else {
+    return false;
+  }
+  return true;
+}
 void setup() {
   clock_prescale_set(clock_div_2);
 
@@ -421,8 +434,16 @@ void setup() {
   Paint_NewImage(IMAGE_BW, EPD_5IN83_WIDTH, EPD_5IN83_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
   SDCard_Init();
 
+  u8g2.begin();
+
+  if (fileExist("bookmarks.txt")) {
+    menuMode = 5;
+    drawBootMenu();
+  } else {
+
   menuMode = 0;
   drawFileList();
+  }
 
   pinMode(buttonPin, INPUT);
   //pinMode(buttonPin2, INPUT);
@@ -433,8 +454,83 @@ void setup() {
   /////////////
 }
 
+
+
+String getBookmarkName(int idx) {
+
+  File fileB = sd.open("bookmarks.txt", MFILE_READ);
+  size_t n;
+  int cntr = 0;
+  //Serial.print(buffer);
+  if (fileB) {
+    while ((n = fileB.fgets(line, sizeof(line))) > 0) {
+      char* pch;
+      pch = strtok(line, ";");
+
+      if (cntr == idx) {
+        String str = String(pch);
+        fileB.close();
+        return str;
+      }
+      cntr++;
+    }
+    fileB.close();
+  } else {
+    //Serial.println("bookmarks.txt not found");
+  }
+}
+
+void drawBookmarksList() {
+
+
+  u8g2.clearBuffer();  // clear the internal memory
+  //u8g2.setFont(u8g2_font_4x6_t_cyrillic); // choose a suitable font
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);  // choose a suitable font
+  //u8g2_font_cu12_t_cyrillic
+  u8g2.setContrast(0x5);
+  // Serial.print("getb");
+  Paint_Clear(WHITE);
+
+  File fileB = sd.open("bookmarks.txt", MFILE_READ);
+  size_t n;
+  int cntr = 0;
+  //Serial.print(buffer);
+  if (fileB) {
+    while ((n = fileB.fgets(line, sizeof(line))) > 0) {
+      char* pch;
+      pch = strtok(line, ";");
+      Paint_DrawString_EN(0, cntr * fontHeight, pch, &Font12, WHITE, BLACK);
+      if (cntr == 0)
+        u8g2.drawStr(0, 16, pch);  // write something to the internal memory
+
+      pch = strtok(NULL, ";");
+      int page = atoi(pch);
+
+
+      //Serial.println(filename);
+
+
+
+      Paint_DrawString_EN(400, cntr * fontHeight, pch, &Font12, WHITE, BLACK);
+
+
+      cntr++;
+      if (cntr > 14)
+        break;
+    }
+    fileB.close();
+  } else {
+    //Serial.println("bookmarks.txt not found");
+  }
+
+
+  totalBookmarks = cntr;
+  //display.display();
+  u8g2.sendBuffer();  // transfer internal memory to the display
+  EPD_5IN83_Display();
+}
 void drawFileList() {
-  u8g2.begin();
+
 
   u8g2.clearBuffer();  // clear the internal memory
   //u8g2.setFont(u8g2_font_4x6_t_cyrillic); // choose a suitable font
@@ -468,7 +564,7 @@ void drawFileList() {
     String filename = String(f_name);
 
     Paint_DrawString_EN(0, cntr * fontHeight, filename.c_str(), &Font12, WHITE, BLACK);
-    u8g2.drawStr(0, cntr * fontHeight, filename.c_str());  // write something to the internal memory
+    //u8g2.drawStr(0, cntr * fontHeight, filename.c_str());  // write something to the internal memory
 
     cntr++;
 
@@ -583,7 +679,6 @@ String getFileN(int n) {
 }
 
 
-int bookMenuPos = 0;  //0- back to book,1-goto page menu, 2- close book
 
 void drawGotoPageMenu() {
   u8g2.clearBuffer();
@@ -712,7 +807,44 @@ void myISR() {
     u8g2.drawStr(0, 16, "Wait..");            // write something to the internal memory
   }
   u8g2.sendBuffer();  // transfer internal memory to the display
-  if (menuMode == 1) {
+
+  if (menuMode == 6) {
+
+    String str = getBookmarkName(bookmarkMenuPos);
+    root_dir = str;
+
+    for (int j = root_dir.length() - 2; j >= 0; j--) {
+      if (root_dir[j] == '/') {
+        root_dir = root_dir.substring(0, j + 1);
+        currentBook = str.substring(j + 1);
+        break;
+      }
+    }
+    //set currentBook
+    SDCard_ReadCB((root_dir + currentBook).c_str());
+    menuMode = 2;
+    int p = getBookmark();
+
+    u8g2.clearBuffer();  // clear the internal memory
+    u8g2.sendBuffer();
+
+    int temp = p;
+    cbPage = 0;
+    skipPagesCB(temp);
+    fastNextPageCB();
+    fastDisplayBuffer();
+    fastNextPageCB();
+
+  } else if (menuMode == 5) {
+    if (bootMenuPos == 0) {  //draw bookmarks
+      menuMode = 6;
+      drawBookmarksList();
+
+    } else if (bootMenuPos == 1) {  //files
+      menuMode = 0;
+      drawFileList();
+    }
+  } else if (menuMode == 1) {
     nextPage();
   } else if (menuMode == 3) {
     processBookMenu();
@@ -812,6 +944,30 @@ void myISR() {
   }
 }
 
+
+void drawBootMenu() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+  if (bootMenuPos == 0)
+    u8g2.drawStr(0, 16, "bookmarks");
+  if (bootMenuPos == 1) {
+    u8g2.drawStr(0, 16, "files");
+  }
+
+  u8g2.sendBuffer();
+}
+
+void drawBookmarkMenu() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+
+  String name = getBookmarkName(bookmarkMenuPos);
+
+  u8g2.drawStr(0, 16, name.c_str());
+
+  u8g2.sendBuffer();
+}
+
 void drawBookMenu() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
@@ -854,7 +1010,15 @@ void myISR2() {
     drawBookMenu();
 
 
+  } else if (menuMode == 6) {
+    bookmarkMenuPos++;
+    if (bookmarkMenuPos == totalBookmarks) bookmarkMenuPos = 0;
+    drawBookmarkMenu();
 
+  } else if (menuMode == 5) {
+    bootMenuPos++;
+    if (bootMenuPos == 2) bootMenuPos = 0;
+    drawBootMenu();
   } else if (menuMode == 3) {
     bookMenuPos++;
     if (bookMenuPos == 7) bookMenuPos = 0;
