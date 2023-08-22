@@ -5,6 +5,7 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 
+//#define USE_DEBUG 1
 
 #include <Arduino.h>
 #include <U8g2lib.h>
@@ -15,16 +16,21 @@
 #ifdef U8X8_HAVE_HW_I2C
 #include <Wire.h>
 #endif
-U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/SCL, /* data=*/SDA, /* reset=*/U8X8_PIN_NONE);  // All Boards without Reset of the Display
-
+#include <INA219_WE.h>
+#define I2C_ADDRESS 0x40
+/*U8G2_SSD1306_128X64_NONAME_F_HW_I2C*/ 
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* clock=*/SCL, /* data=*/SDA, /* reset=*/U8X8_PIN_NONE);  // All Boards without Reset of the Display
+INA219_WE ina219 = INA219_WE(I2C_ADDRESS);
 
 const int max_characters = 80;
 char f_name[max_characters];
 
-const int buttonPin = 19;   // the number of the pushbutton pin
-const int buttonPin3 = 18;  // the number of the pushbutton pin
+const int buttonPin3 = 19;   // the number of the pushbutton pin
+const int buttonPin = 18;  // the number of the pushbutton pin
 //const int buttonPin2 = 35;     // the number of the pushbutton pin
 File file;
+
+bool outdoorMode = false;
 
 String root_dir = "/";
 sFONT* font = &Font12;
@@ -64,7 +70,7 @@ int buttonState2 = 0;  // variable for reading the pushbutton status
 int cbPage = 0;
 String currentBook = "";
 int currentBookIdx = 0;
-int menuMode = 0;  //0-files, 1-text book inside, 2- CB book inside, 3-book menu(goto page,back to files), 4-goto page menu, 5-boot menu, 6 - bookmarks list
+int menuMode = 0;  //0-files, 1-text book inside, 2- CB book inside, 3-book menu(goto page,back to files), 4-goto page menu, 5-boot menu, 6 - bookmarks list, 7- bmp image
 int gotoPage = 0;
 int gotoPageMenu = 0;
 
@@ -232,7 +238,7 @@ void skipPagesCB(int cnt) {
   file.seek(offset);
   cbPage += cnt;
 }
-UBYTE _readBuff[801] = { 0 };
+extern UBYTE _readBuff[801];
 void fastNextPageCB() {
   UWORD X, Y;
   cbPage++;
@@ -272,6 +278,8 @@ void fastNextPageCB() {
     }
     //bmpFile.read(ReadBuff, 1);
   }
+
+  EPD_5IN83_Power(false);
 }
 
 void sendToDisplay(void) {
@@ -305,6 +313,7 @@ void sendToDisplay(void) {
 }
 
 void fastDisplayBuffer() {
+  EPD_5IN83_Power(true);
   EPD_5IN83_TurnOnDisplay();
 }
 
@@ -412,7 +421,8 @@ bool fileExist(const char* path) {
   return true;
 }
 void setup() {
-  clock_prescale_set(clock_div_2);
+
+  // clock_prescale_set(clock_div_2);
 
   //ADCSRA = 0;
   ADCSRA &= ~(1 << ADEN);
@@ -426,15 +436,40 @@ void setup() {
 
   //pinMode(LED_BUILTIN, OUTPUT);
   // digitalWrite(LED_BUILTIN, LOW);
+  if (!ina219.init()) {
+    //Serial.println("INA219 not connected!"); b=false;
+  }
+  float shuntVoltage_mV = 0.0;
+  float loadVoltage_V = 0.0;
+  float busVoltage_V = 0.0;
 
+
+
+  shuntVoltage_mV = ina219.getShuntVoltage_mV();
+  busVoltage_V = ina219.getBusVoltage_V();
+
+  loadVoltage_V = busVoltage_V + (shuntVoltage_mV / 1000);
+  ina219.powerDown();
+
+  u8g2.begin();
+  u8g2.setContrast(0x5);
+  u8g2.setFlipMode(1);
+  u8g2.clearBuffer();                     // clear the internal memory
+  u8g2.setFont(u8g2_font_logisoso18_tr);  // choose a suitable font
+  u8g2.drawStr(0, 25, "V");
+
+  u8g2.setCursor(55, 25);
+  u8g2.print(loadVoltage_V);
+
+  u8g2.sendBuffer();
+  delay(1000);
   DEV_Module_Init();
 
   EPD_5IN83_Init();
   //EPD_5IN83_Clear();
   Paint_NewImage(IMAGE_BW, EPD_5IN83_WIDTH, EPD_5IN83_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
   SDCard_Init();
-
-  u8g2.begin();
+  
 
   if (fileExist("bookmarks.txt")) {
     menuMode = 5;
@@ -489,6 +524,7 @@ void drawBookmarksList() {
   //u8g2_font_cu12_t_cyrillic
   u8g2.setContrast(0x5);
   // Serial.print("getb");
+  EPD_5IN83_Power(true);
   Paint_Clear(WHITE);
 
   File fileB = sd.open("bookmarks.txt", MFILE_READ);
@@ -505,15 +541,8 @@ void drawBookmarksList() {
 
       pch = strtok(NULL, ";");
       int page = atoi(pch);
-
-
       //Serial.println(filename);
-
-
-
-      Paint_DrawString_EN(400, cntr * fontHeight, pch, &Font12, WHITE, BLACK);
-
-
+      Paint_DrawString_EN(400, cntr * fontHeight, String(page).c_str(), &Font12, WHITE, BLACK);
       cntr++;
       if (cntr > 14)
         break;
@@ -528,6 +557,7 @@ void drawBookmarksList() {
   //display.display();
   u8g2.sendBuffer();  // transfer internal memory to the display
   EPD_5IN83_Display();
+  EPD_5IN83_Power(false);
 }
 void drawFileList() {
 
@@ -537,8 +567,7 @@ void drawFileList() {
   u8g2.setFont(u8g2_font_4x6_t_cyrillic);  // choose a suitable font
   //u8g2_font_cu12_t_cyrillic
   u8g2.setContrast(0x5);
-
-
+  EPD_5IN83_Power(true);
   File root = sd.open(root_dir.c_str());
   Paint_Clear(WHITE);
   int cntr = 0;
@@ -559,7 +588,6 @@ void drawFileList() {
       break;
     }
 
-    //Serial.print(entry.name());
     entry.getName(f_name, max_characters);
     String filename = String(f_name);
 
@@ -593,6 +621,7 @@ void drawFileList() {
   //display.display();
   u8g2.sendBuffer();  // transfer internal memory to the display
   EPD_5IN83_Display();
+  EPD_5IN83_Power(false);
 }
 
 int getTotalFiles() {
@@ -713,10 +742,14 @@ void processBookMenu() {
     u8g2.sendBuffer();              // transfer internal memory to the display
 
     menuMode = 0;
-
-
-
     file.close();
+    if (outdoorMode) {
+      EPD_5IN83_Reset();
+      EPD_5IN83_Init();
+      Paint_NewImage(IMAGE_BW, EPD_5IN83_WIDTH, EPD_5IN83_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+      SDCard_Init();
+    }
+
     drawFileList();
   } else if (bookMenuPos == 1) {
     menuMode = 4;
@@ -778,12 +811,101 @@ void processBookMenu() {
     u8g2.clearBuffer();  // clear the internal memory
 
     u8g2.sendBuffer();
+  } else if (bookMenuPos == 7) {  //remove all bookmarks
+    File fileB = sd.open("bookmarks.txt", MFILE_WRITE);
+    if (fileB) {
+      fileB.remove();
+    }
+
+    menuMode = 2;
+    u8g2.clearBuffer();  // clear the internal memory
+
+    u8g2.sendBuffer();
   }
 }
 
-bool b = true;
 
+void FastReadBMP(const char* BmpName, UWORD Xstart, UWORD Ystart) {
+  File bmpFile;
+  //bmpFile = sd.open(BmpName,FILE_READ);
+
+  if (!bmpFile.open(BmpName, O_RDONLY)) {
+    DEBUG("not find : ");
+    DEBUG(BmpName);
+    DEBUG("\n");
+    return;
+  } else {
+    DEBUG("open bmp file : ");
+    DEBUG(BmpName);
+    DEBUG("\n");
+  }
+
+  if (!SDCard_ReadBmpHeader(bmpFile)) {
+    DEBUG("read bmp file error\n");
+    return;
+  }
+  DEBUG("out\n");
+  DEBUG("BMP_Header index\n");
+  DEBUG(BMP_Header.Index);
+  bmpFile.seek(BMP_Header.Index);
+
+  UWORD X, Y;
+  UWORD Image_Width_Byte = (BMP_Header.BMP_Width % 8 == 0) ? (BMP_Header.BMP_Width / 8) : (BMP_Header.BMP_Width / 8 + 1);
+  UWORD Bmp_Width_Byte = (Image_Width_Byte % 4 == 0) ? Image_Width_Byte : ((Image_Width_Byte / 4 + 1) * 4);
+  DEBUG(Image_Width_Byte);
+  DEBUG(Bmp_Width_Byte);
+
+  UBYTE Data_Black, Data;
+  UWORD Width, Height;
+  Width = (EPD_5IN83_WIDTH % 8 == 0) ? (EPD_5IN83_WIDTH / 8) : (EPD_5IN83_WIDTH / 8 + 1);
+  Height = EPD_5IN83_HEIGHT;
+
+  //UBYTE ReadBuff[1] = {0};
+  EPD_5IN83_SendCommand(0x10);
+  for (Y = Ystart; Y < BMP_Header.BMP_Height; Y++) {  //Total display column
+    bmpFile.read(_readBuff, Bmp_Width_Byte);
+    for (X = Xstart / 8; X < Bmp_Width_Byte; X++) {  //Show a line in the line
+      //bmpFile.read(ReadBuff, 1);
+      if (X < Image_Width_Byte) {  //bmp
+
+        if (Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
+          Data_Black = _readBuff[X];
+          //SPIRAM_WR_Byte(X + ( BMP_Header.BMP_Height - Y - 1 ) * Image_Width_Byte , _readBuff[X]);
+        } else {
+          Data_Black = ~_readBuff[X];
+          //  SPIRAM_WR_Byte(X + ( BMP_Header.BMP_Height - Y - 1 ) * Image_Width_Byte , ~_readBuff[X]);
+        }
+        for (UBYTE k = 0; k < 8; k++) {
+          if (Data_Black & 0x80)
+            Data = 0x00;
+          else
+            Data = 0x03;
+          Data <<= 4;
+          Data_Black <<= 1;
+          k++;
+          if (Data_Black & 0x80)
+            Data |= 0x00;
+          else
+            Data |= 0x03;
+          Data_Black <<= 1;
+          EPD_5IN83_SendData(Data);
+        }
+      }
+    }
+  }
+  DEBUG("cp3\n");
+  bmpFile.close();
+  DEBUG("cp4\n");
+  EPD_5IN83_TurnOnDisplay();
+}
+
+bool b = true;
+bool btn1 = false;
+bool btn2 = false;
 void myISR() {
+  btn1 = true;
+}
+void applyButton() {
   //b=!b;
   //digitalWrite(LED_BUILTIN, b?HIGH:LOW);
   u8g2.clearBuffer();  // clear the internal memory
@@ -852,11 +974,26 @@ void myISR() {
     //EPD_5IN83_Init();
     clearOled();
     //displayBuffer();
-    fastDisplayBuffer();
-    //nextPageCB();
-    //sendToDisplay();
-    fastNextPageCB();
-    //  EPD_5IN83_Sleep();
+
+    if (outdoorMode) {
+      EPD_5IN83_Reset();
+      EPD_5IN83_Init();
+      Paint_NewImage(IMAGE_BW, EPD_5IN83_WIDTH, EPD_5IN83_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+      SDCard_Init();
+      SDCard_ReadCB((root_dir + currentBook).c_str());
+      fastNextPageCB();
+      fastDisplayBuffer();
+      EPD_5IN83_Sleep();
+    } else {
+
+
+      fastDisplayBuffer();
+      //nextPageCB();
+      //sendToDisplay();
+      fastNextPageCB();
+    }
+
+
   } else if (menuMode == 0) {
     if (isDir) {
       if (currentBook == "..") {
@@ -886,12 +1023,28 @@ void myISR() {
         // nextPageCB();
         //sendToDisplay();
         fastNextPageCB();
-      }
-      if (currentBook.endsWith(".TXT")) {
+      } else if (currentBook.endsWith(".TXT")) {
         file = sd.open((root_dir + currentBook), O_READ);
         pages = file.size() / (rows * cols);
         menuMode = 1;
         nextPage();
+      } else if (currentBook.endsWith(".bmp") || currentBook.endsWith(".BMP")) {
+        menuMode = 7;
+
+        clearOled();
+
+        Paint_Clear(WHITE);
+        //FastReadBMP((root_dir + currentBook).c_str(), 0, 0);
+
+        EPD_5IN83_Reset();
+        EPD_5IN83_Init(1);
+        Paint_NewImage(IMAGE_BW, EPD_5IN83_WIDTH, EPD_5IN83_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+        SDCard_Init();
+
+        SDCard_ReadBMP((root_dir + currentBook).c_str(), 0, 0);
+        EPD_5IN83_Display();
+
+        EPD_5IN83_Sleep();
       }
     }
 
@@ -989,11 +1142,17 @@ void drawBookMenu() {
     u8g2.drawStr(0, 16, "goto bookmark");
   else if (bookMenuPos == 6)
     u8g2.drawStr(0, 16, "save bookmark");
+  else if (bookMenuPos == 7)
+    u8g2.drawStr(0, 16, "remove bookmarks");
 
   u8g2.sendBuffer();
 }
 
 void myISR2() {
+  btn2 = true;
+}
+
+void menuButton() {
   //b=!b;
   //digitalWrite(LED_BUILTIN, b?HIGH:LOW);
 
@@ -1008,8 +1167,14 @@ void myISR2() {
     bookMenuPos = 0;
 
     drawBookMenu();
+  } else if (menuMode == 7) {  //bmp
 
-
+    menuMode = 0;
+    EPD_5IN83_Reset();
+    EPD_5IN83_Init();
+    Paint_NewImage(IMAGE_BW, EPD_5IN83_WIDTH, EPD_5IN83_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+    SDCard_Init();
+    drawFileList();
   } else if (menuMode == 6) {
     bookmarkMenuPos++;
     if (bookmarkMenuPos == totalBookmarks) bookmarkMenuPos = 0;
@@ -1021,7 +1186,7 @@ void myISR2() {
     drawBootMenu();
   } else if (menuMode == 3) {
     bookMenuPos++;
-    if (bookMenuPos == 7) bookMenuPos = 0;
+    if (bookMenuPos == 8) bookMenuPos = 0;
     drawBookMenu();
   } else if (menuMode == 2) {
 
@@ -1061,5 +1226,14 @@ void loop() {
   interrupts();
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   sleep_mode();
-  noInterrupts();
+  
+  if (btn1) {
+    applyButton();
+    btn1 = false;
+  } else if (btn2) {
+    btn2 = false;
+    menuButton();
+  }
+
+  noInterrupts(); 
 }
