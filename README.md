@@ -2,9 +2,11 @@
 
 "_One book to read them all_"
 
-<img src="https://github.com/user-attachments/assets/657d3588-7098-4fa6-a373-ae8c5ec83855" width="200"  />
+<img src="https://github.com/user-attachments/assets/31bb9521-6a11-493c-bf02-1f4a64062a83" width="500"  />
+
+<br/>
 <img src="https://github.com/user-attachments/assets/b57e9fb0-8926-4ada-921e-aba7ac638fbe" width="200"  />
-<img src="https://github.com/user-attachments/assets/31bb9521-6a11-493c-bf02-1f4a64062a83" width="200"  />
+<img src="https://github.com/user-attachments/assets/657d3588-7098-4fa6-a373-ae8c5ec83855" width="200"  />
 
 
 Zero buttons, solar powered, fully autonomous and hermetic e-book reader.
@@ -25,6 +27,9 @@ WYSIWYG e-book.
 - Buck-boost converter
 - NeoPixel (not necessarily)
 - Other stuff: diode, transistor, resistors, etc
+
+![image](https://github.com/user-attachments/assets/c51009ef-ac24-424c-9be7-da2aa96eabaf)
+
 ### How to switch pages?
 
 
