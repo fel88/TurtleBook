@@ -39,5 +39,8 @@ https://github.com/user-attachments/assets/5e0592eb-202e-4b6f-8b21-0b80249d7fce
 ### How to convert books?
 Use https://github.com/fel88/pdf2eink
 
+### Sample books
+<a href="https://github.com/fel88/TurtleBook/blob/main/samples/nemo.zip">Twenty Thousand Leagues Under the Seas (Jules Verne)</a>
+
 ### History
 It was inspired by my old project https://github.com/fel88/BIP and couple of github projects solar panel + supercap
