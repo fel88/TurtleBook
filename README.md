@@ -18,13 +18,13 @@ WYSIWYG e-book.
 
 ### Hardware
 - Arduino MEGA2560
-- Waveshare E-ink display 5,83” (648×480) 
+- Waveshare E-ink display 5,83” (648×480)  https://www.waveshare.com/5.83inch-e-paper.htm
 - FRAM memory
 - OLED display
 - SD-card slot
 - MPU6050 (instead of buttons)
 - Reed switch (turn on/off)
-- Lithium-ion capacitors (LIC) 4x200F
+- Lithium-ion capacitors (LIC) 4x200F  (https://en.cda-cap.com/index.php/product/lib-series/)
 - Solar panel
 - Buck-boost converter
 - NeoPixel (not necessarily)
