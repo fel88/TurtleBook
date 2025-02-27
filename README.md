@@ -19,7 +19,8 @@ WYSIWYG e-book.
 ### Hardware
 - Arduino MEGA2560 (https://aliexpress.ru/item/32967417746.html?sku_id=66568659813)
 - Waveshare E-ink display 5,83” (648×480)  https://www.waveshare.com/5.83inch-e-paper.htm
-- FRAM memory
+- FRAM memory (FM24W256-GTR)
+- Crystal oscillator KSE-7U16000MAB143ZA3
 - OLED display
 - INA219 (https://aliexpress.ru/item/33047166203.html?sku_id=12000044300903777)
 - SD-card slot
