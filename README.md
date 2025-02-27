@@ -54,7 +54,7 @@ Default e-readers have so many needless options. But all you need 99% of time is
 
 E-ink paper don't consume power till you read it without switching. So Eink+solar power is very suitable combination of technologies.
 
-This book doesn't contains any physical buttons. There is accelerometer inside the book and it can recognize your gestures. It can be used in discrete way (to switch page or to switch menu position in both directions), or it can be used in analog way (e.g. to set brightness of the NeoPixel led)
+This book doesn't contain any physical buttons. There is accelerometer inside the book and it can recognize your gestures. It can be used in discrete way (to switch page or to switch menu position in both directions), or it can be used in analog way (e.g. to set brightness of the NeoPixel led)
 
 To turn on the book you just move special plastic key in special place. The internal reed switch will be activated and the book will turn on.
 
