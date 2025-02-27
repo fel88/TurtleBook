@@ -2,9 +2,11 @@
 
 "_One book to read them all_"
 
-<img src="https://github.com/user-attachments/assets/31bb9521-6a11-493c-bf02-1f4a64062a83" width="500"  />
+<img src="https://github.com/user-attachments/assets/834d9b57-e441-4399-a74a-d50caecb808d" width="500"  />
 
 <br/>
+<img src="https://github.com/user-attachments/assets/31bb9521-6a11-493c-bf02-1f4a64062a83" width="200"  />
+
 <img src="https://github.com/user-attachments/assets/b57e9fb0-8926-4ada-921e-aba7ac638fbe" width="200"  />
 <img src="https://github.com/user-attachments/assets/657d3588-7098-4fa6-a373-ae8c5ec83855" width="200"  />
 
@@ -43,4 +45,29 @@ Use https://github.com/fel88/pdf2eink
 <a href="https://github.com/fel88/TurtleBook/blob/main/samples/nemo.zip">Twenty Thousand Leagues Under the Seas (Jules Verne)</a>
 
 ### History
-It was inspired by my old project https://github.com/fel88/BIP and couple of github projects solar panel + supercap
+
+I am a big fan of reading books, so I've decided to make a small contribution to the world of e-readers .
+
+I travel on the train a lot and I needed some reliable reader. That's why I decided to make DIY e-book reader.
+
+Default e-readers have so many needless options. But all you need 99% of time is turn to next page.
+
+E-ink paper don't consume power till you read it without switching. So Eink+solar power is very suitable combination of technologies.
+
+This book doesn't contains any physical buttons. There is accelerometer inside the book and it can recognize your gestures. It can be used in discrete way (to switch page or to switch menu position in both directions), or it can be used in analog way (e.g. to set brightness of the NeoPixel led)
+
+To turn on the book you just move special plastic key in special place. The internal reed switch will be activated and the book will turn on.
+
+This book has some distinctions from the default e-reader and satisfy my needs better.
+
+   - Solar powered (more autonomous)
+   - No buttons. (you need to make some effort to switch the page like in real book)
+   - Hybrid capacitors (LIC) instead of batteries
+   - Sealed / hermetic ( you can use compound+expoxy resin to totally sealed the book and it'll become water proof)
+   - More reliable plexiglass case . You can put cup of coffee on it or you can throw it in your backpack and not worry that it will break.
+   - Nothing useless in the firmware
+   - Open hardware and firmware
+   - Eink for reading and small OLED for quick response menu operations
+
+
+Also It was inspired by my old project https://github.com/fel88/BIP and couple of github projects solar panel + supercap
