@@ -17,19 +17,21 @@ For everyone who loves reading books and DIY projects.
 WYSIWYG e-book. 
 
 ### Hardware
-- Arduino MEGA2560
+- Arduino MEGA2560 (https://aliexpress.ru/item/32967417746.html?sku_id=66568659813)
 - Waveshare E-ink display 5,83” (648×480)  https://www.waveshare.com/5.83inch-e-paper.htm
 - FRAM memory
 - OLED display
+- INA219 (https://aliexpress.ru/item/33047166203.html?sku_id=12000044300903777)
 - SD-card slot
 - MPU6050 (instead of buttons)
 - Reed switch (turn on/off)
 - Lithium-ion capacitors (LIC) 4x200F  (https://en.cda-cap.com/index.php/product/lib-series/)
-- Solar panel
-- Buck-boost converter
+- Solar panel (something like this https://aliexpress.ru/item/1005008193807038.html?sku_id=12000044193770138)
+- Buck-boost converter (https://aliexpress.ru/item/1005001525710076.html)
 - NeoPixel (not necessarily)
 - Other stuff: diode, transistor, resistors, etc
-
+- Wires (https://aliexpress.ru/item/32793368381.html?sku_id=64310577090)
+  
 ![image](https://github.com/user-attachments/assets/c51009ef-ac24-424c-9be7-da2aa96eabaf)
 
 ### How to switch pages?
