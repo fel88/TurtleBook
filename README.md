@@ -22,7 +22,7 @@ WYSIWYG e-book.
 - FRAM memory (FM24W256-GTR)
 - WaveShare shield https://www.waveshare.com/product/displays/e-paper/e-paper-shield-b.htm
 - Crystal oscillator KSE-7U16000MAB143ZA3
-- OLED display
+- OLED display (128x32 i2c)
 - INA219 (https://aliexpress.ru/item/33047166203.html?sku_id=12000044300903777)
 - SD-card slot
 - MPU6050 (instead of buttons)
