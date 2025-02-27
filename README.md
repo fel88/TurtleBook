@@ -70,4 +70,4 @@ This book has some distinctions from the default e-reader and satisfy my needs b
    - Eink for reading and small OLED for quick response menu operations
 
 
-Also It was inspired by my old project https://github.com/fel88/BIP and couple of github projects solar panel + supercap
+Also It was inspired by my old project https://github.com/fel88/BIP and couple of github projects (https://hackaday.io/project/189366-supercaps-solar-panel-project/details) solar panel + supercap (https://github.com/aresta/Supercaps)
