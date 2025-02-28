@@ -14,6 +14,10 @@
 Zero buttons, solar powered, fully autonomous and hermetic e-book reader.
 
 For everyone who loves reading books and DIY projects.
+
+Instructables:
+https://www.instructables.com/Solar-Powered-Zero-Buttons-E-book-Reader/
+
 WYSIWYG e-book. 
 
 ### Hardware
