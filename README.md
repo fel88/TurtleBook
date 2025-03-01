@@ -55,6 +55,9 @@ You need next components to solder PCB board:
 
 https://github.com/user-attachments/assets/5e0592eb-202e-4b6f-8b21-0b80249d7fce
 
+### How many pages can I read?
+
+If you have 3 LIC charged to 3.88V you can read about 880 pages (LICs will be discharged to 3.05V)
 
 ### How to convert books?
 Use https://github.com/fel88/pdf2eink
