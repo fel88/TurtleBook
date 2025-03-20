@@ -8,7 +8,7 @@
 #include <EEPROM.h>
 
 char temp128[128];
-const int triggerDelay=300;
+const int triggerDelay = 300;
 
 #include <Wire.h>
 #define disk 0x50  //адрес чипа FM24C
@@ -197,6 +197,7 @@ int fontWidth = 7;  //11 for font16, 17 for font24, 7 for font12
 int bookMenuPos = 0;      //0- back to book,1-goto page menu, 2- close book
 int bootMenuPos = 0;      //0 - load bookmarks list, 1- load files list, 2- settings, 3- wifi
 int settingsMenuPos = 0;  //
+int ledMenuIdx = 0;       //
 int statisticsMenuIdx = 0;
 int bookmarkMenuPos = 0;
 int totalBookmarks = 0;
@@ -235,7 +236,9 @@ enum class menuModeEnum {
   bookmarks,     // 6 - bookmarks list
   bmp,           // 7- bmp image,
   settings,      //8- settings list
-  statistics     //9- statistics menu
+  statistics,    //9- statistics menu
+  led
+
 } menuMode;
 
 
@@ -851,6 +854,7 @@ uint8_t readByte(uint8_t address, uint8_t subAddress) {
 float loadVoltage_V = 0.0;
 int ledBrightness = 64;
 bool ledEnabled = false;
+int ledColor = 0;
 
 int eepromApplyRevertAddr = 0x10;
 
@@ -860,12 +864,7 @@ void readSettingsFromEEPROM() {
 }
 
 void setup() {
-pixels.setBrightness(ledBrightness);
 
-  pixels.begin();
-  pixels.clear();  // Set all pixel colors to 'off'
-
-  pixels.show();
   width = EPD_5IN83_V2_WIDTH;
   height = EPD_5IN83_V2_HEIGHT;
 
@@ -899,6 +898,20 @@ pixels.setBrightness(ledBrightness);
 
   loadVoltage_V = busVoltage_V + (shuntVoltage_mV / 1000);
   ina219.powerDown();
+ 
+
+  pixels.begin();
+  pixels.show();
+
+  if (loadVoltage_V < 3.05) {
+    //shut off
+   
+    noInterrupts();
+
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
+    sleep_mode();                         // Переводим МК в сон
+    return;
+  }
 
   u8g2.begin();
   u8g2.setContrast(0x5);
@@ -996,7 +1009,6 @@ pixels.setBrightness(ledBrightness);
         }
     
     Serial.println(root_dir);*/
-  
 }
 
 void initShield() {
@@ -1393,8 +1405,8 @@ void drawSettingsList() {
   //???3. startup behaviour : automatic resume, menu ?????
   //4.back
   u8g2.clearBuffer();
-  //u8g2.setFont(u8g2_font_9x15_t_cyrillic);
-  u8g2.setFont(u8g2_font_4x6_t_cyrillic);
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+  //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
 
   if (settingsMenuPos == 0)
     u8g2.drawStr(0, 16, "oled brightness");  //1. oled brightness
@@ -1412,6 +1424,30 @@ void drawSettingsList() {
     u8g2.drawStr(0, 16, "back");
   }
 
+  u8g2.sendBuffer();
+}
+
+void drawLedMenu() {
+  //EEPROM
+
+  //???3. startup behaviour : automatic resume, menu ?????
+  //4.back
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+  //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
+
+  if (ledMenuIdx == 0) {
+    u8g2.drawStr(0, 16, "brightness");  // brightness
+    sprintf(temp128, "%d", ledBrightness / 16);
+    u8g2.drawStr(0, 32, temp128);
+
+  } else if (ledMenuIdx == 1) {
+    u8g2.drawStr(0, 16, "color");
+    sprintf(temp128, "%d", ledColor);
+    u8g2.drawStr(0, 32, temp128);
+  } else if (ledMenuIdx == 2) {
+    u8g2.drawStr(0, 16, "back");
+  }
   u8g2.sendBuffer();
 }
 
@@ -1886,6 +1922,21 @@ void loadBookmark(int bpos) {
   loadBookmark(str);
 }
 
+void updLedPixels() {
+  switch (ledColor) {
+    case 0:
+      pixels.setPixelColor(0, pixels.Color(0, 255, 0));
+      break;
+    case 1:
+      pixels.setPixelColor(0, pixels.Color(0, 0, 255));
+      break;
+    case 2:
+      pixels.setPixelColor(0, pixels.Color(255, 255, 255));
+      break;
+  }
+  pixels.show();
+}
+
 void applyButton(int dir) {
   //b=!b;
   //digitalWrite(LED_BUILTIN, b?HIGH:LOW);
@@ -1937,6 +1988,49 @@ void applyButton(int dir) {
           FramWriteLong(CounterPagesFramAddress, total);
 
           drawStatisticsMenu();
+        }
+        break;
+      }
+    case menuModeEnum::led:
+      {
+        switch (ledMenuIdx) {
+          case 0:
+            {
+              ledBrightness += 16;
+
+              if (ledBrightness > 160) {
+                ledBrightness = 0;
+              }
+              if (ledBrightness == 0) {
+                pixels.clear();  // Set all pixel colors to 'off'
+              } else {
+                pixels.setBrightness(ledBrightness);
+              }
+
+              updLedPixels();
+
+              //EEPROM.put(eepromApplyRevertAddr, (byte)(applyRevert ? 1 : 0));
+              drawLedMenu();
+            }
+            break;
+
+          case 1:
+            {
+              ledColor++;
+              ledColor %= 3;
+
+              updLedPixels();
+
+              // EEPROM.put(eepromApplyRevertAddr, (byte)(applyRevert ? 1 : 0));
+              drawLedMenu();
+            }
+            break;
+          case 2:
+            {
+              menuMode = menuModeEnum::bootMenu;
+              drawBootMenu(false);
+            }
+            break;
         }
         break;
       }
@@ -2005,26 +2099,12 @@ void applyButton(int dir) {
           statisticsMenuIdx = 0;
           drawStatisticsMenu();
         } else if (bootMenuPos == 6) {  //led
-          ledBrightness += 16;
 
-          if (ledBrightness > 160) {
-            ledBrightness = 0;
-          }
-          if (ledBrightness == 0) {
-            pixels.clear();  // Set all pixel colors to 'off'
+          menuMode = menuModeEnum::led;
+          ledMenuIdx = 0;
+          drawLedMenu();
 
-
-            pixels.show();
-          } else {
-
-            pixels.setBrightness(ledBrightness);
-
-            pixels.setPixelColor(0, pixels.Color(0, 255, 0));
-
-            pixels.show();
-          }
-
-          ledEnabled = !ledEnabled;
+          //ledEnabled = !ledEnabled;
         }
         break;
       }
@@ -2335,6 +2415,18 @@ drawFileList();*/
           if (bootMenuPos < 0) bootMenuPos = 6;
         }
         drawBootMenu(false);
+        break;
+      }
+    case (menuModeEnum::led):
+      {
+        if (dir > 0) {
+          ledMenuIdx++;
+          if (ledMenuIdx == 3) ledMenuIdx = 0;
+        } else {
+          ledMenuIdx--;
+          if (ledMenuIdx < 0) ledMenuIdx = 2;
+        }
+        drawLedMenu();
         break;
       }
     case (menuModeEnum::statistics):
