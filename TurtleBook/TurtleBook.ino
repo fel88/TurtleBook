@@ -852,15 +852,19 @@ uint8_t readByte(uint8_t address, uint8_t subAddress) {
   return data;                            // Return data read from slave register
 }
 float loadVoltage_V = 0.0;
-int ledBrightness = 64;
+unsigned char ledBrightness = 64;
 bool ledEnabled = false;
-int ledColor = 0;
+unsigned char ledColor = 0;
 
 int eepromApplyRevertAddr = 0x10;
+int eepromLedBrightnessAddr = 0x11;
+int eepromLedColorAddr = 0x12;
 
 void readSettingsFromEEPROM() {
 
   applyRevert = EEPROM.read(eepromApplyRevertAddr) == 1;
+  ledBrightness = EEPROM.read(eepromLedBrightnessAddr);
+  ledColor = EEPROM.read(eepromLedColorAddr);
 }
 
 void setup() {
@@ -898,14 +902,14 @@ void setup() {
 
   loadVoltage_V = busVoltage_V + (shuntVoltage_mV / 1000);
   ina219.powerDown();
- 
+
 
   pixels.begin();
   pixels.show();
 
   if (loadVoltage_V < 3.05) {
     //shut off
-   
+
     noInterrupts();
 
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
@@ -1437,15 +1441,20 @@ void drawLedMenu() {
   //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
 
   if (ledMenuIdx == 0) {
+    u8g2.drawStr(0, 16, "switch");  // turn on/off
+    sprintf(temp128, "%s", ledEnabled ? "on" : "off");
+    u8g2.drawStr(0, 32, temp128);
+
+  } else if (ledMenuIdx == 1) {
     u8g2.drawStr(0, 16, "brightness");  // brightness
     sprintf(temp128, "%d", ledBrightness / 16);
     u8g2.drawStr(0, 32, temp128);
 
-  } else if (ledMenuIdx == 1) {
+  } else if (ledMenuIdx == 2) {
     u8g2.drawStr(0, 16, "color");
     sprintf(temp128, "%d", ledColor);
     u8g2.drawStr(0, 32, temp128);
-  } else if (ledMenuIdx == 2) {
+  } else if (ledMenuIdx == 3) {
     u8g2.drawStr(0, 16, "back");
   }
   u8g2.sendBuffer();
@@ -1995,6 +2004,17 @@ void applyButton(int dir) {
       {
         switch (ledMenuIdx) {
           case 0:
+            ledEnabled = !ledEnabled;
+            if (!ledEnabled) {
+              pixels.clear();
+              pixels.show();
+            } else {
+              pixels.setBrightness(ledBrightness);
+              updLedPixels();
+            }
+            drawLedMenu();
+            break;
+          case 1:
             {
               ledBrightness += 16;
 
@@ -2009,23 +2029,22 @@ void applyButton(int dir) {
 
               updLedPixels();
 
-              //EEPROM.put(eepromApplyRevertAddr, (byte)(applyRevert ? 1 : 0));
+              EEPROM.put(eepromLedBrightnessAddr, ledBrightness);
               drawLedMenu();
             }
             break;
-
-          case 1:
+          case 2:
             {
               ledColor++;
               ledColor %= 3;
 
               updLedPixels();
+              EEPROM.put(eepromLedColorAddr, ledColor);
 
-              // EEPROM.put(eepromApplyRevertAddr, (byte)(applyRevert ? 1 : 0));
               drawLedMenu();
             }
             break;
-          case 2:
+          case 3:
             {
               menuMode = menuModeEnum::bootMenu;
               drawBootMenu(false);
@@ -2421,10 +2440,10 @@ drawFileList();*/
       {
         if (dir > 0) {
           ledMenuIdx++;
-          if (ledMenuIdx == 3) ledMenuIdx = 0;
+          if (ledMenuIdx == 4) ledMenuIdx = 0;
         } else {
           ledMenuIdx--;
-          if (ledMenuIdx < 0) ledMenuIdx = 2;
+          if (ledMenuIdx < 0) ledMenuIdx = 3;
         }
         drawLedMenu();
         break;
