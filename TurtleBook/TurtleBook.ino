@@ -198,6 +198,7 @@ int bookMenuPos = 0;      //0- back to book,1-goto page menu, 2- close book
 int bootMenuPos = 0;      //0 - load bookmarks list, 1- load files list, 2- settings, 3- wifi
 int settingsMenuPos = 0;  //
 int ledMenuIdx = 0;       //
+int chaptersMenuIdx = 0;  //
 int statisticsMenuIdx = 0;
 int bookmarkMenuPos = 0;
 int totalBookmarks = 0;
@@ -213,6 +214,10 @@ int width;
 int bookWidth;
 int height;
 int bookHeight;
+unsigned long tocRawSize;
+int tocItems;
+
+
 extern SdFat sd;
 
 #define MFILE_WRITE (O_RDWR | O_CREAT | O_AT_END)
@@ -438,6 +443,11 @@ void SDCard_ReadCB(const char* Name) {
 
   format1 = file.read();
   auto format2 = file.read();
+
+  //reset toc
+  tocItems = 0;
+  tocRawSize = 0;
+
   if (format1 == 0x2) {
     //sections format
     long pos = 4;
@@ -452,6 +462,12 @@ void SDCard_ReadCB(const char* Name) {
 
   width = SDCard_Read16(file);
   height = SDCard_Read16(file);
+
+  if (format2 == 0x1) {  //simple toc section
+    tocItems = SDCard_Read32(file);
+    tocRawSize = SDCard_Read32(file);
+    file.seek(12ul + tocRawSize);
+  }
 
   bookWidth = width;
   bookHeight = height;
@@ -487,7 +503,7 @@ void skipPagesCB(int cnt) {
 
   unsigned long bytesPerPageCB = (unsigned long)stride * (unsigned long)bookHeight;
   //unsigned long bytesPerPageCB = 76ul * 448ul;
-  unsigned long offset = 12ul + ((unsigned long)cnt) * bytesPerPageCB;
+  unsigned long offset = (12ul + tocRawSize) + ((unsigned long)cnt) * bytesPerPageCB;
 
   file.seek(offset);
   cbPage += cnt;
@@ -851,6 +867,7 @@ uint8_t readByte(uint8_t address, uint8_t subAddress) {
   data = Wire.read();                     // Fill Rx buffer with result
   return data;                            // Return data read from slave register
 }
+
 float loadVoltage_V = 0.0;
 unsigned char ledBrightness = 64;
 bool ledEnabled = false;
@@ -867,7 +884,15 @@ void readSettingsFromEEPROM() {
   ledColor = EEPROM.read(eepromLedColorAddr);
 }
 
+void (*applyButton)(int dir);
+void (*menuButton)(int dir);
+
+void defaultApplyButtonHandler(int dir);
+void defaultMenuButtonHandler(int dir);
+
 void setup() {
+  applyButton = defaultApplyButtonHandler;
+  menuButton = defaultMenuButtonHandler;
 
   width = EPD_5IN83_V2_WIDTH;
   height = EPD_5IN83_V2_HEIGHT;
@@ -1460,6 +1485,27 @@ void drawLedMenu() {
   u8g2.sendBuffer();
 }
 
+void drawChaptersMenu() {
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+  //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
+
+  if (chaptersMenuIdx == 0) {
+    u8g2.drawStr(0, 16, "[back]");
+
+  } else {
+    //read toc item
+    //chaptersMenuIdx
+
+    auto ch_name = GetChapterName(chaptersMenuIdx - 1);
+
+    sprintf(temp128, "%s", ch_name.c_str());
+    u8g2.drawStr(0, 16, temp128);
+  }
+  u8g2.sendBuffer();
+}
+
 void drawFileList() {
 
 
@@ -1555,7 +1601,55 @@ int getTotalFiles() {
   root.close();
   return cntr;
 }
+
 bool isDir = false;
+
+String GetChapterName(int idx) {
+  file.seek(12ul + 8ul);
+  for (int i = 0; i <= idx; i++) {
+    //4 page
+    SDCard_Read32(file);
+    //2 ident
+    SDCard_Read16(file);
+    //2 len
+    int len = SDCard_Read16(file);
+    //string[len]
+    if (i == idx) {
+      memset(temp128, 0, sizeof(temp128));
+      file.read(temp128, len);
+    } else {
+      file.seek(file.position() + len);
+    }
+    //2 len
+    int len2 = SDCard_Read16(file);
+    //string[len]
+    file.seek(file.position() + len2);
+  }
+
+  String name = String(temp128);
+  return name;
+}
+
+int GetChapterPage(int idx) {
+  file.seek(12ul + 8ul);
+  int page = 0;
+  for (int i = 0; i <= idx; i++) {
+    //4 page
+    page = SDCard_Read32(file);
+    //2 ident
+    SDCard_Read16(file);
+    //2 len
+    int len = SDCard_Read16(file);
+    //string[len]
+    file.read(temp128, len);
+
+    int len2 = SDCard_Read16(file);
+    //string[len]
+    file.seek(file.position() + len2);
+  }
+
+  return page;
+}
 
 String getFileN(int n) {
   isDir = false;
@@ -1737,18 +1831,12 @@ void processBookMenu() {
     u8g2.clearBuffer();  // clear the internal memory
 
     u8g2.sendBuffer();
-  } else if (bookMenuPos == 8) {  //top up this book bookmark
-
-    //saveBookmark(-1);
-    /*  File fileB = sd.open("bookmarks.txt", MFILE_WRITE);
-    if (fileB) {
-      fileB.remove();
-    }*/
-
-    // menuMode = 2;
-    // u8g2.clearBuffer();  // clear the internal memory
-
-    // u8g2.sendBuffer();
+  } else if (bookMenuPos == 8) {  //chapters
+    if (tocItems > 0) {
+      menuButton = chaptersMenuButtonHandler;
+      applyButton = chaptersApplyButtonHandler;
+      drawChaptersMenu();
+    }
   }
 }
 
@@ -1946,7 +2034,49 @@ void updLedPixels() {
   pixels.show();
 }
 
-void applyButton(int dir) {
+void chaptersApplyButtonHandler(int dir) {
+  applyButton = defaultApplyButtonHandler;
+  menuButton = defaultMenuButtonHandler;
+  if (chaptersMenuIdx == 0) {  //back
+
+    //menuButton(1);
+    //menuButton(-1);
+
+  } else {
+    gotoPage = GetChapterPage(chaptersMenuIdx - 1) - 1;
+
+    GotoPage();
+  }
+}
+
+void GotoPage() {
+  u8g2.clearBuffer();                       // clear the internal memory
+  u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
+
+  u8g2.drawStr(0, 16, "Wait..");  // write something to the internal memory
+  u8g2.sendBuffer();              // transfer internal memory to the display
+  if (currentBook.endsWith(".CB") || currentBook.endsWith(".cb")) {
+    //resetCB();
+    cbPage = 0;
+    clearOled();
+    skipPagesCB(gotoPage);
+    fastNextPageCB();
+    fastDisplayBuffer();
+    fastNextPageCB();
+    menuMode = menuModeEnum::CB;
+  } else if (currentBook.endsWith(".TXT")) {
+    page = gotoPage - 1;
+    //file.seek(0);
+    unsigned long offset = ((unsigned long)rows * (unsigned long)cols) * (gotoPage - 1);
+    file.seek(offset);
+    //for(int k=0;k<gotoPage-1;k++)
+    //    skipPage();
+    nextPage();
+    menuMode = menuModeEnum::textBook;
+  }
+}
+
+void defaultApplyButtonHandler(int dir) {
   //b=!b;
   //digitalWrite(LED_BUILTIN, b?HIGH:LOW);
   u8g2.clearBuffer();  // clear the internal memory
@@ -2246,30 +2376,7 @@ void applyButton(int dir) {
           gotoPage -= 1;
           drawGotoPageMenu();
         } else if (gotoPageMenu == 5) {
-          u8g2.clearBuffer();                       // clear the internal memory
-          u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
-
-          u8g2.drawStr(0, 16, "Wait..");  // write something to the internal memory
-          u8g2.sendBuffer();              // transfer internal memory to the display
-          if (currentBook.endsWith(".CB") || currentBook.endsWith(".cb")) {
-            //resetCB();
-            cbPage = 0;
-            clearOled();
-            skipPagesCB(gotoPage);
-            fastNextPageCB();
-            fastDisplayBuffer();
-            fastNextPageCB();
-            menuMode = menuModeEnum::CB;
-          } else if (currentBook.endsWith(".TXT")) {
-            page = gotoPage - 1;
-            //file.seek(0);
-            unsigned long offset = ((unsigned long)rows * (unsigned long)cols) * (gotoPage - 1);
-            file.seek(offset);
-            //for(int k=0;k<gotoPage-1;k++)
-            //    skipPage();
-            nextPage();
-            menuMode = menuModeEnum::textBook;
-          }
+          GotoPage();
         } else if (gotoPageMenu == 6) {
           menuMode = menuModeEnum::bookMenu;
           bookMenuPos = 0;
@@ -2345,7 +2452,7 @@ void drawBookMenu() {
   else if (bookMenuPos == 7)
     u8g2.drawStr(0, 16, "remove bookmark");
   else if (bookMenuPos == 8)
-    u8g2.drawStr(0, 16, "top-up bookmark");
+    u8g2.drawStr(0, 16, "chapters");
 
   u8g2.sendBuffer();
 }
@@ -2363,7 +2470,18 @@ void myISR2() {
   last_interrupt_time = interrupt_time;
 }
 
-void menuButton(int dir) {
+void chaptersMenuButtonHandler(int dir) {
+  if (dir > 0) {
+    chaptersMenuIdx++;
+    if (chaptersMenuIdx == tocItems + 1) chaptersMenuIdx = 0;
+  } else {
+    chaptersMenuIdx--;
+    if (chaptersMenuIdx < 0) chaptersMenuIdx = tocItems;
+  }
+  drawChaptersMenu();
+}
+
+void defaultMenuButtonHandler(int dir) {
   //b=!b;
   //digitalWrite(LED_BUILTIN, b?HIGH:LOW);
 
