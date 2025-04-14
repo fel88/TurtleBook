@@ -13,8 +13,10 @@ const int triggerDelay = 300;
 #include <Wire.h>
 #define disk 0x50  //адрес чипа FM24C
 
+#define WEMOS_PMOS_PIN 11
+
 // Which pin on the Arduino is connected to the NeoPixels?
-#define NEO_PIN 10  // On Trinket or Gemma, suggest changing this to 1
+#define NEO_PIN 10  // todo: change to 14/15
 // When setting up the NeoPixel library, we tell it how many pixels,
 // and which pin to use to send signals. Note that for older NeoPixel
 // strips you might need to change the third parameter -- see the
@@ -977,8 +979,10 @@ void setup() {
   }*/
 
   //pinMode(wemosPin, OUTPUT);
+
   //pinMode(wemosRstPin, OUTPUT);
-  Serial3.begin(115200);
+  //Serial3.begin(115200);
+
 //digitalWrite(wemosPin,LOW);
 //digitalWrite(wemosRstPin,LOW);
 //pinMode(buttonPin, INPUT_PULLUP);
@@ -1042,7 +1046,9 @@ void setup() {
 
 void initShield() {
   //digitalWrite(wemosPin,HIGH);
-  Serial3.println("sleep");
+  //Serial3.println("sleep");
+
+
   //digitalWrite(wemosRstPin,HIGH);
   delay(500);
   DEV_Module_Init();
@@ -2234,8 +2240,9 @@ void defaultApplyButtonHandler(int dir) {
           wifiMode = true;
           //  digitalWrite(wemosPin,HIGH);
           //digitalWrite(wemosRstPin,HIGH);
-          Serial3.println("run");
-
+          //  Serial3.println("run");
+          pinMode(WEMOS_PMOS_PIN, OUTPUT);
+          digitalWrite(WEMOS_PMOS_PIN, LOW);
 
           clearOled();
           noInterrupts();

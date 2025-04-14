@@ -20,6 +20,8 @@ const char* password = APPSK;
 
 ESP8266WebServer server(80);
 
+const bool DecryptZCB = false;
+
 //File root;
 /**
    data
@@ -196,7 +198,7 @@ const String postForms = "<html>\
       <input type=\"submit\" value=\"Submit\">\
     </form>\
      <h1>POST form file to /postform/</h1><br>\
-    <form method=\"post\" enctype=\"multipart/form-data\" action=\"\">\
+    <form method=\"post\" enctype=\"multipart/form-data\" action=\"/upload\">\
   <div>\
     <label>Select file to upload</label>\
     <input name='dummy' type=\"file\">\
@@ -204,6 +206,14 @@ const String postForms = "<html>\
   <div>\
   <label>Upload path</label>\
   <input name=\"uploadPathInput\" type=\"text\"  />\
+  </div>\
+  <button id=\"sub1\" >Send</button>\
+  </form>\
+     <h1>Download file  /download/</h1><br>\
+    <form method=\"get\" enctype=\"multipart/form-data\" action=\"/download/\">\ 
+  <div>\
+  <label>Download path</label>\
+  <input name=\"downloadPathInput\" type=\"text\"  />\
   </div>\
   <button id=\"sub1\" >Send</button>\
   </form>\
@@ -321,32 +331,32 @@ void decodeZCB(String filename) {
   //decode
   p = 0;
   long totalBytes = 0;
-while ((data = file.read()) >= 0)
+  while ((data = file.read()) >= 0)
   //for (int i = 0; i < 32; i++)
   {
     //data = file.read();
-   // Serial.print("data read:");
-   // Serial.println(data);
-   // Serial.print("bit read ");
+    // Serial.print("data read:");
+    // Serial.println(data);
+    // Serial.print("bit read ");
     for (int j = 0; j < 8; j++) {
       //Serial.println(bitRead(data, j));
     }
     for (int j = 0; j < 8; j++) {
-     // Serial.print("p:");
+      // Serial.print("p:");
       //Serial.println(p);
       //Serial.print("huff[p]:");
-     // Serial.println(huff[p]);
+      // Serial.println(huff[p]);
       if (huff[p] >= 0) {
         sfile.write((unsigned char)huff[p]);
         totalBytes++;
-if((totalBytes%100)==0){
-  Serial.print("totalBytes: ");
-  Serial.println(totalBytes);
-}
+        if ((totalBytes % 100) == 0) {
+          Serial.print("totalBytes: ");
+          Serial.println(totalBytes);
+        }
         p = 0;
       }
       if (bitRead(data, j) > 0) {  //1
-      //  Serial.println("right");
+                                   //  Serial.println("right");
 
 
         p = p * 2 + 2;
@@ -599,7 +609,9 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
   } else if (upload.status == UPLOAD_FILE_END) {
     file.close();
     Serial.println("file closed");
-    decodeZCB(lastUploadedFilePath);
+    if (DecryptZCB) {
+      decodeZCB(lastUploadedFilePath);
+    }
     // if(fsUploadFile) {                                    // If the file was successfully created
     // fsUploadFile.close();                               // Close the file again
     // sendStringPacket("END");delay(packetAfterDelay);
@@ -672,6 +684,47 @@ void recDir(FsFile* tdir, String path) {
   middle += "</li>";
 }
 
+void File_Download() {  // This gets called twice, the first pass selects the input, the second pass then processes the command line arguments
+  Serial.println("download request");
+  String dPath = server.arg("downloadPathInput");
+
+  if (!dPath.startsWith("/"))
+    dPath = "/" + dPath;
+
+  Serial.print("dpath : ");
+  Serial.println(dPath);
+
+  file = sd.open(dPath, MFILE_READ);
+  server.sendHeader("Content-Type", "application/octet-stream");
+  server.sendHeader("Content-Disposition", "attachment; filename=\"" + dPath + "\"");
+  server.sendHeader("Connection", "close");
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  char data[128];
+
+
+  server.send(200, "application/octet-stream", "");
+  
+    int size = 0;
+    for (long i = 0; i < file.size(); i++) {
+
+      data[size] = file.read();
+      size++;
+      if (size == 128) {
+        server.sendContent(data, size);
+        size = 0;
+      }
+    }
+    if (size > 0) {
+      server.sendContent(data, size);
+    }
+    //server.streamFile(file, "application/octet-stream");
+    file.close();
+  
+  //else SelectInput("Enter filename to download","download","download");
+}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 void setup() {
   /* int rr=getInternalBootCode();
 
@@ -680,23 +733,23 @@ void setup() {
     setInternalBootCode(0);rr=getInternalBootCode();
     }
     setInternalBootCode(rr+1);*/
-  Serial.begin(115200);
+  //Serial.begin(115200);
 
   WiFi.mode(WIFI_OFF);  // TURN OFF WIFI
   WiFi.forceSleepBegin();
   delay(1);
-  delay(2000);
-  while (!Serial) {
-    yield();
-  }
-  Serial.println("deep");
+  //delay(2000);
+  //while (!Serial) {
+    //yield();
+  //}
+  //Serial.println("deep");
   //while (Serial.available() == 0) {}
-  String teststr = Serial.readString();  //read until timeout
-  teststr.trim();                        // remove any \r \n whitespace at the end of the String
-  if (teststr == "run") {
+  ////String teststr = Serial.readString();  //read until timeout
+  //teststr.trim();                        // remove any \r \n whitespace at the end of the String
+  //if (teststr == "run") {
     //ESP.deepSleep(0);
 
-  }  //else {
+  //}  //else {
   // Serial.println("deep");
 
   //  ESP.deepSleep(0);
@@ -709,7 +762,7 @@ void setup() {
   }
   WiFi.setOutputPower(0);  // this sets wifi to lowest power
 
-  Serial.println("start");
+ // Serial.println("start");
   /*pinMode(D8, INPUT_PULLUP);      // устанавливает режим работы - выход
     pinMode(3, FUNCTION_3);      // устанавливает режим работы - выход
     pinMode(3, INPUT_PULLUP);      // устанавливает режим работы - выход
@@ -723,7 +776,7 @@ void setup() {
     Serial.println(rr2);
   */
   //Serial.begin(115200);
-  Serial.println("start2");
+//  Serial.println("start2");
 
   /*
     pinMode(D3, OUTPUT);      // устанавливает режим работы - выход
@@ -768,7 +821,7 @@ void setup() {
   );
 
   server.on("/postplain/", handlePlain);
-
+  server.on("/download/", File_Download);
   server.on("/postform/", handleForm);
 
   server.on("/list/", handleList);
@@ -791,15 +844,17 @@ void setup() {
 
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", 80);
-return;
+  //return;
   // Initialize the SD.
-  bool goodInited=true; 
+  bool goodInited = true;
   if (!sd.begin(SD_CONFIG)) {
     sd.initErrorHalt(&Serial);
-    goodInited=false;
+    goodInited = false;
   }
 
-  if (goodInited) {
+  if (goodInited) 
+  {
+
     // Open root directory
     if (!dir.open("/")) {
       error("dir.open failed");
