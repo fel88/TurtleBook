@@ -34,8 +34,8 @@ const bool DecryptZCB = false;
    SPI RAM
 **/
 #define EPD_CS D1
-#define EPD_RST D2
-#define SD_CS D4
+#define EPD_RST D1
+//#define SD_CS D4
 #define SPIRAM_CS D3
 
 
@@ -94,14 +94,14 @@ const bool DecryptZCB = false;
 
 // SDCARD_SS_PIN is defined for the built-in SD on some boards.
 #ifndef SDCARD_SS_PIN
-const uint8_t SD_CS_PIN = D4;
+const uint8_t SD_CS_PIN = D2;
 #else   // SDCARD_SS_PIN
 // Assume built-in SD is used.
 const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 #endif  // SDCARD_SS_PIN
 
 // Try max SPI clock for an SD. Reduce SPI_CLOCK if errors occur.
-#define SPI_CLOCK SD_SCK_MHZ(16)
+#define SPI_CLOCK SD_SCK_MHZ(50)
 
 // Try to select the best SD card configuration.
 //#if HAS_SDIO_CLASS
@@ -113,18 +113,20 @@ const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 //#endif  // HAS_SDIO_CLASS
 
 UBYTE my_DEV_Module_Init(void) {
+  //return 0;
   //set pin
-  pinMode(SPIRAM_CS, OUTPUT);
-  pinMode(SD_CS, OUTPUT);
+  //pinMode(SPIRAM_CS, OUTPUT);
+  //pinMode(SD_CS, OUTPUT);
 
-  pinMode(EPD_CS, OUTPUT);
+  //pinMode(EPD_CS, OUTPUT);
   //pinMode(EPD_DC, OUTPUT);
   pinMode(EPD_RST, OUTPUT);
 
+  EPD_RST_1;
 
-  EPD_CS_1;
-  SD_CS_1;
-  SPIRAM_CS_1;
+  //EPD_CS_1;
+  // SD_CS_1;
+  //SPIRAM_CS_1;
 
   //set Serial
   //Serial.begin(115200);
@@ -136,6 +138,7 @@ UBYTE my_DEV_Module_Init(void) {
     SPI.setClockDivider(SPI_CLOCK_DIV4);
     SPI.begin();
   */
+  return 0;
   DEV_Digital_Write(EPD_RST_PIN, 1);
   delay(200);
   DEV_Digital_Write(EPD_RST_PIN, 0);
@@ -703,27 +706,145 @@ void File_Download() {  // This gets called twice, the first pass selects the in
 
 
   server.send(200, "application/octet-stream", "");
-  
-    int size = 0;
-    for (long i = 0; i < file.size(); i++) {
 
-      data[size] = file.read();
-      size++;
-      if (size == 128) {
-        server.sendContent(data, size);
-        size = 0;
-      }
-    }
-    if (size > 0) {
+  int size = 0;
+  for (long i = 0; i < file.size(); i++) {
+
+    data[size] = file.read();
+    size++;
+    if (size == 128) {
       server.sendContent(data, size);
+      size = 0;
     }
-    //server.streamFile(file, "application/octet-stream");
-    file.close();
-  
+  }
+  if (size > 0) {
+    server.sendContent(data, size);
+  }
+  //server.streamFile(file, "application/octet-stream");
+  file.close();
+
   //else SelectInput("Enter filename to download","download","download");
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+const char* p2p_ssid = "book";
+const char* p2p_password = "12345";
+WiFiServer p2p_server(888);
+
+bool webMode = true;
+
+IPAddress ip(192, 168, 4, 1);
+IPAddress gateway(192, 168, 4, 1);
+IPAddress subnet(255, 255, 255, 0);
+void p2pRecieverMode() {
+
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(p2p_ssid, p2p_password);
+  WiFi.config(ip, gateway, subnet);
+  //WiFi.hostname("Magic");  // Name that appears in your network
+
+
+  while (WiFi.status() != WL_CONNECTED) {
+
+
+    delay(100);
+  }
+
+  p2p_server.begin();
+
+  WiFiClient client = p2p_server.available();  // Проверка подключения клиента
+  while (!client) {
+    delay(100);
+  }
+  while (!client.available()) {  // Ожидание запроса клиента
+    delay(1);
+  }
+  client.setTimeout(100000);
+  String filename = client.readStringUntil('\r');  // filename
+
+  if (!filename.startsWith("/")) filename = "/" + filename;
+
+  String request2 = client.readStringUntil('\r');  // size
+  auto size = request2.toInt();
+  client.flush();
+  file = sd.open(filename, MFILE_WRITE);
+  Serial.println("max");
+  int crntsz = 0;
+  Serial.println(size);
+  while (client.available()) {
+    file.write(client.read());
+    crntsz++;
+    Serial.println(crntsz);
+
+    if (crntsz == size) break;
+  }
+  file.close();
+  ESP.deepSleep(0);
+}
+void p2pSenderMode() {
+  webMode = false;
+  Serial.println("files");
+  Serial.flush();
+  yield();
+  delay(2500);
+  Serial.println("3");
+  Serial.flush();
+  yield();
+  delay(2500);
+  Serial.println("123.cb");
+  Serial.flush();
+  delay(2200);
+  yield();
+  Serial.println("456.cb");
+  Serial.flush();
+  delay(2200);
+  yield();
+  Serial.println("11111.cb");
+  Serial.flush();
+  delay(2200);
+  yield();
+
+
+  while (true) {
+    while (!Serial) {
+      yield();
+    }
+
+    while (Serial.available() == 0) {}
+    String teststr = Serial.readString();  //read until timeout
+    teststr.trim();                        // remove any \r \n whitespace at the end of the String
+    if (teststr == "web") {
+    }
+  }
+
+
+  WiFi.begin(p2p_ssid, p2p_password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+
+
+  WiFiClient client;
+  if (!client.connect(ip, 888)) {
+    //return client;sleep?
+  }
+  //send file name
+  //send data
+  String dPath = "/1.cb";
+  client.println(dPath);
+  file = sd.open(dPath, MFILE_READ);
+  Serial.println("max");
+  Serial.println(file.size());
+
+  client.println(file.size());
+  for (int i = 0; i < file.size(); i++) {
+    client.write(file.read());
+    Serial.println(i);
+  }
+  file.close();
+  ESP.deepSleep(0);
+}
 
 void setup() {
   /* int rr=getInternalBootCode();
@@ -740,14 +861,14 @@ void setup() {
   delay(1);
   //delay(2000);
   //while (!Serial) {
-    //yield();
+  //yield();
   //}
   //Serial.println("deep");
   //while (Serial.available() == 0) {}
   ////String teststr = Serial.readString();  //read until timeout
   //teststr.trim();                        // remove any \r \n whitespace at the end of the String
   //if (teststr == "run") {
-    //ESP.deepSleep(0);
+  //ESP.deepSleep(0);
 
   //}  //else {
   // Serial.println("deep");
@@ -762,7 +883,7 @@ void setup() {
   }
   WiFi.setOutputPower(0);  // this sets wifi to lowest power
 
- // Serial.println("start");
+  // Serial.println("start");
   /*pinMode(D8, INPUT_PULLUP);      // устанавливает режим работы - выход
     pinMode(3, FUNCTION_3);      // устанавливает режим работы - выход
     pinMode(3, INPUT_PULLUP);      // устанавливает режим работы - выход
@@ -775,8 +896,28 @@ void setup() {
 
     Serial.println(rr2);
   */
-  //Serial.begin(115200);
-//  Serial.println("start2");
+  Serial.begin(115200);
+  my_DEV_Module_Init();
+  while (true) {
+    while (!Serial) {
+      yield();
+    }
+
+    while (Serial.available() == 0) {}
+    String teststr = Serial.readString();  //read until timeout
+    teststr.trim();                        // remove any \r \n whitespace at the end of the String
+    if (teststr == "web") {
+      break;
+    }
+    if (teststr.startsWith("p2p.se")) {
+      p2pSenderMode();
+    } else if (teststr.startsWith("p2p.re")) {
+      p2pRecieverMode();
+    }
+  }
+  //else {
+  // Serial.println("deep");
+  //  Serial.println("start2");
 
   /*
     pinMode(D3, OUTPUT);      // устанавливает режим работы - выход
@@ -785,7 +926,7 @@ void setup() {
     digitalWrite(D3, HIGH);   // включает светодиод
     digitalWrite(D4, HIGH);   // включает светодиод
   */
-  my_DEV_Module_Init();
+
 
   // Wait for USB Serial
   /* while (!Serial) {
@@ -796,7 +937,7 @@ void setup() {
     while (!Serial.available()) {
     yield();
     }*/
-  delay(4000);
+  delay(1000);
 
   WiFi.softAP(ssid, password);
   delay(2000);
@@ -852,8 +993,7 @@ void setup() {
     goodInited = false;
   }
 
-  if (goodInited) 
-  {
+  if (goodInited) {
 
     // Open root directory
     if (!dir.open("/")) {
@@ -881,5 +1021,6 @@ void setup() {
 
 //------------------------------------------------------------------------------
 void loop() {
-  server.handleClient();
+  if (webMode)
+    server.handleClient();
 }

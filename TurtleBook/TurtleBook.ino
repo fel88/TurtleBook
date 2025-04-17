@@ -1491,6 +1491,30 @@ void drawLedMenu() {
   u8g2.sendBuffer();
 }
 
+int p2pMaxItems = 3;
+int p2pMenuIdx = 0;
+bool serial3started = false;
+
+void drawP2PMenu() {
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+  //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
+
+  if (p2pMenuIdx == 0) {
+    u8g2.drawStr(0, 16, "web");
+
+  } else if (p2pMenuIdx == 1) {
+    u8g2.drawStr(0, 16, "p2p.reciever");
+
+  } else if (p2pMenuIdx == 2) {
+    u8g2.drawStr(0, 16, "p2p.sender");
+  } else if (p2pMenuIdx == 3) {
+    u8g2.drawStr(0, 16, "exit");
+  }
+  u8g2.sendBuffer();
+}
+
 void drawChaptersMenu() {
 
   u8g2.clearBuffer();
@@ -1512,6 +1536,39 @@ void drawChaptersMenu() {
   u8g2.sendBuffer();
 }
 
+String exfiles[5];
+int exfiles_top=0;
+
+int p2pSenderMenuIdx = 0;
+
+void drawOledString(String str) {
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+
+  sprintf(temp128, "%s", str.c_str());
+  u8g2.drawStr(0, 16, temp128);
+
+  u8g2.sendBuffer();
+}
+
+void drawP2PSenderMenu() {
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+  //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
+
+  {
+    //read toc item
+    //chaptersMenuIdx
+
+    auto ch_name = exfiles[p2pSenderMenuIdx];
+
+    sprintf(temp128, "%s", ch_name.c_str());
+    u8g2.drawStr(0, 16, temp128);
+  }
+  u8g2.sendBuffer();
+}
 void drawFileList() {
 
 
@@ -1928,16 +1985,7 @@ int getFastBookmark(int pos) {
 }
 unsigned long last_interrupt_time_1 = 0;
 
-void myISR() {
-  if (wifiMode || btn1) return;
-  unsigned long interrupt_time = millis();
-  // If interrupts come faster than 200ms, assume it's a bounce and ignore
-  //if (interrupt_time - last_interrupt_time_1 > 200)
-  {
-    btn1 = true;
-  }
-  last_interrupt_time_1 = interrupt_time;
-}
+
 
 bool hasFramBookmark() {
   int b;
@@ -2040,6 +2088,104 @@ void updLedPixels() {
   pixels.show();
 }
 
+
+
+
+
+void p2pSenderMenuButtonHandler(int dir) {
+  if (dir > 0) {
+    p2pSenderMenuIdx++;
+    if (p2pSenderMenuIdx == exfiles_top + 1) p2pSenderMenuIdx = 0;
+  } else {
+    p2pSenderMenuIdx--;
+    if (p2pSenderMenuIdx < 0) p2pSenderMenuIdx = exfiles_top;
+  }
+  drawP2PSenderMenu();
+}
+
+void p2pSenderApplyButtonHandler(int dir) {
+  Serial3.println(exfiles[p2pSenderMenuIdx]);
+  //oled progress show?
+}
+String readLine() {
+  int cnt = Serial3.readBytesUntil('\n', temp128, 128);
+  temp128[cnt] = '\0';
+  String teststr111 = String(temp128);
+  teststr111.trim();
+  return teststr111;
+}
+
+
+void p2pApplyButtonHandler(int dir) {
+  if (!serial3started) {
+    Serial3.begin(115200);
+    serial3started = true;
+  }
+  if (p2pMenuIdx == 0) {
+    Serial3.println("web");
+    clearOled();
+    Serial3.end();
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
+    sleep_mode();                         // Переводим МК в сон
+  } else if (p2pMenuIdx == 1) {
+    Serial3.println("p2p.reciever");
+
+    //
+  } else if (p2pMenuIdx == 2) {Serial3.setTimeout(10000);
+    Serial3.println("p2p.sender");
+
+    int fcount = 0;
+    int cntr = 0;
+    int cntr2 = 0;
+    bool was1=false;
+    bool was2=false;
+    
+    Serial3.setTimeout(10000);
+    String teststr11 = Serial3.readStringUntil('\n');
+
+    drawOledString(teststr11);
+    delay(500);
+
+
+    teststr11 = Serial3.readStringUntil('\n');
+
+    fcount = teststr11.toInt();
+    drawOledString(String(fcount));
+
+    delay(500);
+
+
+    //change menu/apply handlers
+    for (int i = 0; i < fcount; i++) {
+      //   while (Serial3.available() == 0) {}
+      String teststr3 = Serial3.readStringUntil('\n');  //read until timeout
+                                       drawOledString(teststr3);
+                                      delay(100);
+      exfiles[exfiles_top++]=(teststr3);
+    }
+    drawOledString("finish!"); delay(1000);
+    for (int i = 0; i < exfiles_top; i++) {
+    drawOledString(exfiles[i]); delay(1000);
+    }
+   
+    applyButton = p2pSenderApplyButtonHandler;
+    menuButton = p2pSenderMenuButtonHandler;
+    drawP2PSenderMenu();
+
+
+    //
+  } else if (p2pMenuIdx == 3) {
+    //disable wemos
+    digitalWrite(WEMOS_PMOS_PIN, HIGH);
+    pinMode(WEMOS_PMOS_PIN, INPUT);
+    //todo back to menu
+    clearOled();
+    Serial3.end();
+    applyButton = defaultApplyButtonHandler;
+    menuButton = defaultMenuButtonHandler;
+  }
+}
+
 void chaptersApplyButtonHandler(int dir) {
   applyButton = defaultApplyButtonHandler;
   menuButton = defaultMenuButtonHandler;
@@ -2080,6 +2226,32 @@ void GotoPage() {
     nextPage();
     menuMode = menuModeEnum::textBook;
   }
+}
+
+void initWifiMode() {
+
+  return;
+  //set pin
+  //pinMode(SPIRAM_CS, OUTPUT);
+
+  //pinMode(EPD_CS, OUTPUT);
+  //pinMode(EPD_DC, OUTPUT);
+  pinMode(EPD_RST, OUTPUT);
+  //pinMode(EPD_BUSY, INPUT);
+  //pinMode(SD_CS, OUTPUT);
+
+  //EPD_CS_1;
+  //SD_CS_1;
+  //  SPIRAM_CS_1;
+  EPD_RST_1;
+  //SD_CS_1;
+
+  /*DEV_Digital_Write(EPD_RST_PIN, 1);
+  delay(200);
+  DEV_Digital_Write(EPD_RST_PIN, 0);
+  delay(10);
+  DEV_Digital_Write(EPD_RST_PIN, 1);
+  delay(200);*/
 }
 
 void defaultApplyButtonHandler(int dir) {
@@ -2238,18 +2410,29 @@ void defaultApplyButtonHandler(int dir) {
         } else if (bootMenuPos == 4) {  //wifi
           //enable wifi mode
           wifiMode = true;
+
+
+
           //  digitalWrite(wemosPin,HIGH);
           //digitalWrite(wemosRstPin,HIGH);
           //  Serial3.println("run");
-          pinMode(WEMOS_PMOS_PIN, OUTPUT);
-          digitalWrite(WEMOS_PMOS_PIN, LOW);
+
 
           clearOled();
-          noInterrupts();
 
-          set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
-          sleep_mode();                         // Переводим МК в сон
-        } else if (bootMenuPos == 5) {          //statistics
+          initWifiMode();
+
+          pinMode(WEMOS_PMOS_PIN, OUTPUT);
+          digitalWrite(WEMOS_PMOS_PIN, LOW);
+          //noInterrupts();
+
+          menuButton = p2pMenuButtonHandler;
+          applyButton = p2pApplyButtonHandler;
+          drawP2PMenu();
+
+          //  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
+          // sleep_mode();                         // Переводим МК в сон
+        } else if (bootMenuPos == 5) {  //statistics
           initShield();
           menuMode = menuModeEnum::statistics;
           statisticsMenuIdx = 0;
@@ -2464,17 +2647,18 @@ void drawBookMenu() {
   u8g2.sendBuffer();
 }
 unsigned long last_interrupt_time = 0;
-void myISR2() {
-  if (wifiMode || btn2) return;
 
 
-  unsigned long interrupt_time = millis();
-  // If interrupts come faster than 200ms, assume it's a bounce and ignore
-  //if (interrupt_time - last_interrupt_time > 200)
-  {
-    btn2 = true;
+
+void p2pMenuButtonHandler(int dir) {
+  if (dir > 0) {
+    p2pMenuIdx++;
+    if (p2pMenuIdx == p2pMaxItems + 1) p2pMenuIdx = 0;
+  } else {
+    p2pMenuIdx--;
+    if (p2pMenuIdx < 0) p2pMenuIdx = p2pMaxItems;
   }
-  last_interrupt_time = interrupt_time;
+  drawP2PMenu();
 }
 
 void chaptersMenuButtonHandler(int dir) {
