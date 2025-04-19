@@ -648,6 +648,35 @@ void setInternalBootCode(int value) {
 }
 
 
+void p2p_enumDir(FsFile* tdir, String path) {
+  FsFile file;
+
+  tdir->getName(f_name, max_characters);
+  String dname = String(f_name);
+
+
+  while (file.openNext(tdir, O_RDONLY)) {
+
+
+
+    file.getName(f_name, max_characters);
+    //filename = String(f_name);
+    String filename = String(f_name);
+    Serial.println(filename);
+
+    if (file.isDir()) {
+
+      //recDir(&file, path + '/' + dname);
+      //middle += "<p><a href=\"#\" onclick=\"alert('" + filename + "');\">" + filename + "</a></p>";
+
+      // Indicate a directory.
+      // Serial.write('/');
+    } else {
+    }
+    //Serial.println();
+    file.close();
+  }
+}
 void recDir(FsFile* tdir, String path) {
   FsFile file;
 
@@ -728,28 +757,32 @@ void File_Download() {  // This gets called twice, the first pass selects the in
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 const char* p2p_ssid = "book";
-const char* p2p_password = "12345";
+const char* p2p_password = "12345678";
+
 WiFiServer p2p_server(888);
 
 bool webMode = true;
 
-IPAddress ip(192, 168, 4, 1);
+IPAddress ip(192, 168, 1, 1);
 IPAddress gateway(192, 168, 4, 1);
 IPAddress subnet(255, 255, 255, 0);
+
 void p2pRecieverMode() {
 
 
   WiFi.mode(WIFI_AP);
+  WiFi.setOutputPower(0);
+  WiFi.softAPConfig(ip, gateway, subnet);
   WiFi.softAP(p2p_ssid, p2p_password);
-  WiFi.config(ip, gateway, subnet);
+  //WiFi.config(ip, gateway, subnet);
   //WiFi.hostname("Magic");  // Name that appears in your network
 
-
+  /*
   while (WiFi.status() != WL_CONNECTED) {
 
 
     delay(100);
-  }
+  }*/
 
   p2p_server.begin();
 
@@ -762,87 +795,95 @@ void p2pRecieverMode() {
   }
   client.setTimeout(100000);
   String filename = client.readStringUntil('\r');  // filename
-
+  filename.trim();
   if (!filename.startsWith("/")) filename = "/" + filename;
 
   String request2 = client.readStringUntil('\r');  // size
+  request2.trim();
   auto size = request2.toInt();
   client.flush();
   file = sd.open(filename, MFILE_WRITE);
   Serial.println("max");
   int crntsz = 0;
   Serial.println(size);
-  while (client.available()) {
+  //while (client.available()) {
+  for (long ii = 0; ii < size; ii++) {
     file.write(client.read());
-    crntsz++;
-    Serial.println(crntsz);
 
-    if (crntsz == size) break;
+    if (ii % 1000 == 0)
+      Serial.println(crntsz);
   }
   file.close();
+  WiFi.mode(WIFI_OFF);  // TURN OFF WIFI
+  WiFi.forceSleepBegin();
   ESP.deepSleep(0);
 }
+
 void p2pSenderMode() {
   webMode = false;
   Serial.println("files");
   Serial.flush();
-  yield();
-  delay(2500);
-  Serial.println("3");
+  if (!dir.open("/")) {
+    error("dir.open failed");
+  }
+  p2p_enumDir(&dir, "/");
+  Serial.println("<finish>");
   Serial.flush();
-  yield();
-  delay(2500);
-  Serial.println("123.cb");
-  Serial.flush();
-  delay(2200);
-  yield();
-  Serial.println("456.cb");
-  Serial.flush();
-  delay(2200);
-  yield();
-  Serial.println("11111.cb");
-  Serial.flush();
-  delay(2200);
-  yield();
-
-
+  String dPath = "/1.cb";
+  Serial.setTimeout(100000);
   while (true) {
     while (!Serial) {
       yield();
     }
 
-    while (Serial.available() == 0) {}
-    String teststr = Serial.readString();  //read until timeout
-    teststr.trim();                        // remove any \r \n whitespace at the end of the String
-    if (teststr == "web") {
+    String teststr = Serial.readStringUntil('\r');  //read until timeout
+    teststr.trim();                                 // remove any \r \n whitespace at the end of the String
+    if (teststr == "<select>") {
+
+      dPath = Serial.readStringUntil('\r');  //read until timeout
+      dPath.trim();
+      break;
+    } else {
     }
   }
 
-
+  WiFi.setOutputPower(0);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(p2p_ssid, p2p_password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
   }
 
-
   WiFiClient client;
   if (!client.connect(ip, 888)) {
     //return client;sleep?
+    WiFi.mode(WIFI_OFF);  // TURN OFF WIFI
+    WiFi.forceSleepBegin();
+    ESP.deepSleep(0);
+    return;
   }
   //send file name
   //send data
-  String dPath = "/1.cb";
-  client.println(dPath);
-  file = sd.open(dPath, MFILE_READ);
-  Serial.println("max");
-  Serial.println(file.size());
 
-  client.println(file.size());
-  for (int i = 0; i < file.size(); i++) {
+  client.print(dPath);
+  client.print('\r');
+  file = sd.open(dPath, MFILE_READ);
+  //Serial.println("max");
+
+  auto sz = file.size();
+  for (long i = 0; i < sz; i++) {
     client.write(file.read());
-    Serial.println(i);
+    if (i % 1000 == 0) {
+      float vv = i / sz;
+      Serial.print((int)(100 * vv));
+      client.print('\r');
+    }
   }
+  client.print("end");
+  client.print('\r');
   file.close();
+  WiFi.mode(WIFI_OFF);  // TURN OFF WIFI
+  WiFi.forceSleepBegin();
   ESP.deepSleep(0);
 }
 
