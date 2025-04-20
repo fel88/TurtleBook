@@ -2107,16 +2107,20 @@ void p2pSenderMenuButtonHandler(int dir) {
 void p2pSenderApplyButtonHandler(int dir) {
   Serial3.print("<select>");
   Serial3.print("\r");
-
+  Serial3.flush();
+  Serial3.readStringUntil('\r');  //ack wait
   Serial3.print(exfiles[p2pSenderMenuIdx]);
   //oled progress show?
   Serial3.print("\r");
+  Serial3.flush();
 
+  Serial3.readStringUntil('\r');  //ack wait
   while (true) {
     auto v_str = Serial3.readStringUntil('\r');
+    v_str.trim();
     if (v_str == "end")
       break;
-    v_str.trim();
+
     drawOledString(v_str + "%");
   }
   drawOledString("100%");
@@ -2135,60 +2139,84 @@ String readLine() {
   return teststr111;
 }
 
-
 void p2pApplyButtonHandler(int dir) {
   if (!serial3started) {
     Serial3.begin(115200);
     serial3started = true;
   }
   if (p2pMenuIdx == 0) {
-    Serial3.println("web");
+    Serial3.print("web");
+    Serial3.print("\r");
     clearOled();
     Serial3.end();
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
     sleep_mode();                         // Переводим МК в сон
   } else if (p2pMenuIdx == 1) {
-    Serial3.println("p2p.reciever");
+    Serial3.print("p2p.reciever");
+    Serial3.print("\r");
+    Serial3.setTimeout(10000);
+    drawOledString("waiting..");
 
+    while (true) {
+      auto v_str = Serial3.readStringUntil('\r');
+      v_str.trim();
+      if (v_str == "")
+        continue;
+      if (v_str == "end")
+        break;
+      v_str.trim();
+      drawOledString(v_str + "%");
+    }
+    drawOledString("100%");
+
+    clearOled();
+    Serial3.end();
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
+    sleep_mode();
     //
   } else if (p2pMenuIdx == 2) {
     Serial3.setTimeout(10000);
-    Serial3.println("p2p.sender");
-
+    Serial3.print("p2p.sender");
+    Serial3.print("\r");
+    drawOledString("waiting..");
     int fcount = 0;
     int cntr = 0;
     int cntr2 = 0;
     bool was1 = false;
     bool was2 = false;
 
-    Serial3.setTimeout(10000);
-    String teststr11 = Serial3.readStringUntil('\n');
+    Serial3.setTimeout(100000);
+    String teststr11 = Serial3.readStringUntil('\r');
 
     drawOledString(teststr11);
     delay(500);
 
     while (true) {
 
-      teststr11 = Serial3.readStringUntil('\n');
+      teststr11 = Serial3.readStringUntil('\r');
       teststr11.trim();
-      if (teststr11 == "<finish>") {
+      Serial3.print("ok");
+      Serial3.print("\r");
+      Serial3.flush();
+      //drawOledString(teststr11);
+
+      if (teststr11 == "<finish>")
         break;
-      }
 
       //read until timeout
-      drawOledString(teststr11);
-      delay(100);
+
       if (exfiles_top < EXT_FILES_MAX)
-        exfiles[exfiles_top++] = (teststr3);
+        exfiles[exfiles_top++] = teststr11;
     }
 
-    drawOledString("finish!");
+    /*drawOledString("finish!");
     delay(1000);
     for (int i = 0; i < exfiles_top; i++) {
       drawOledString(exfiles[i]);
       delay(1000);
     }
-
+    drawOledString("finish2!");
+    delay(1000);*/
     applyButton = p2pSenderApplyButtonHandler;
     menuButton = p2pSenderMenuButtonHandler;
     drawP2PSenderMenu();
