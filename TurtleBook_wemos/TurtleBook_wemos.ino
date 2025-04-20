@@ -791,15 +791,22 @@ void p2pRecieverMode() {
   p2p_server.begin();
   Serial.print("cp2");
   Serial.print('\r');
+  Serial.flush();
   WiFiClient client = p2p_server.available();  // Проверка подключения клиента
   while (!client) {
     delay(100);
+    client = p2p_server.available();
   }
+  Serial.print("cp22");
+  Serial.print('\r');
+  Serial.flush();
   while (!client.available()) {  // Ожидание запроса клиента
-    delay(1);
+    delay(10);
   }
   Serial.print("cp3");
   Serial.print('\r');
+  Serial.flush();
+
   client.setTimeout(100000);
   String filename = client.readStringUntil('\r');  // filename
   filename.trim();
@@ -807,14 +814,19 @@ void p2pRecieverMode() {
     filename = "/" + filename;
   Serial.print("cp4");
   Serial.print('\r');
+  Serial.flush();
 
   Serial.print(filename);
   Serial.print('\r');
+  Serial.flush();
+
   String request2 = client.readStringUntil('\r');  // size
   request2.trim();
   auto size = request2.toInt();
   Serial.print(size);
   Serial.print('\r');
+  Serial.flush();
+
   //client.flush();
   // Initialize the SD.
   my_DEV_Module_Init();
@@ -825,16 +837,22 @@ void p2pRecieverMode() {
   }
   Serial.print("cp5");
   Serial.print('\r');
+  Serial.flush();
 
   file = sd.open(filename, MFILE_WRITE);
   Serial.print("cp6");
   Serial.print('\r');
+  Serial.flush();
+
   for (long ii = 0; ii < size; ii++) {
+    while (!client.available())
+      delay(1);
     file.write(client.read());
-    if (ii % 1000 == 0) {
-      float vv = ii / size;
+    if (ii % 10000 == 0) {
+      float vv = ii / (float)size;
       Serial.print((int)(100 * vv));
       Serial.print('\r');
+      Serial.flush();
     }
   }
 
@@ -925,7 +943,7 @@ void p2pSenderMode() {
   Serial.flush();
   delay(500);
 
-  
+
   if (!dPath.startsWith("/"))
     dPath = "/" + dPath;
 
@@ -940,11 +958,12 @@ void p2pSenderMode() {
   file = sd.open(dPath, MFILE_READ);
   //Serial.println("max");
 
-  auto sz = file.size(); 
+  auto sz = file.size();
   client.print(sz);
   client.print('\r');
   client.flush();
   for (long i = 0; i < sz; i++) {
+
     client.write(file.read());
     if (i % 10000 == 0) {
       float vv = i / (float)sz;
@@ -953,12 +972,12 @@ void p2pSenderMode() {
       Serial.flush();
     }
   }
-    file.close();
-  
+  file.close();
+
 
   WiFi.mode(WIFI_OFF);  // TURN OFF WIFI
   Serial.print("end");
-  Serial.print('\r'); 
+  Serial.print('\r');
   Serial.flush();
   WiFi.forceSleepBegin();
   ESP.deepSleep(0);
