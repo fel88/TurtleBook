@@ -81,6 +81,9 @@ Components:
 2. PNP transistor 2N3906
 3. resistor 330
    
+### Weight
+
+Approx. 260g
 
 ### History
 
