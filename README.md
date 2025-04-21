@@ -65,6 +65,23 @@ Use https://github.com/fel88/pdf2eink
 ### Sample books
 <a href="https://github.com/fel88/TurtleBook/blob/main/samples/nemo.zip">Twenty Thousand Leagues Under the Seas (Jules Verne)</a>
 
+### Wifi (optional)
+
+You can add Wemos D1 v3 module in order to use Wifi 
+
+
+<img src="https://github.com/user-attachments/assets/8100f600-fab7-446a-a428-500a60b89aca" width="500"  />
+
+There are two ways of WiFi usage at the moment:
+1. Wifi Access point: Web page (upload, download books). Use your phone/laptop to load books via browser
+2. P2P sender/reciever. Direct book 2 book sharing
+
+Components:
+1. Wemos d1 v3 module
+2. PNP transistor 2N3906
+3. resistor 330
+   
+
 ### History
 
 I am a big fan of reading books, so I've decided to make a small contribution to the world of e-readers .
