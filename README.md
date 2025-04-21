@@ -83,7 +83,7 @@ Components:
    
 ### Weight
 
-Approx. 260g
+Approx. 260g (with wemos d1)
 
 ### History
 
