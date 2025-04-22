@@ -772,8 +772,7 @@ IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 void p2pRecieverMode() {
-  Serial.print("cp1");
-  Serial.print('\r');
+  
   WiFi.mode(WIFI_AP);
   WiFi.setOutputPower(0);
   WiFi.softAPConfig(ip, gateway, subnet);
@@ -789,7 +788,7 @@ void p2pRecieverMode() {
   }*/
 
   p2p_server.begin();
-  Serial.print("cp2");
+  Serial.print("begin");
   Serial.print('\r');
   Serial.flush();
   WiFiClient client = p2p_server.available();  // Проверка подключения клиента
@@ -797,13 +796,13 @@ void p2pRecieverMode() {
     delay(100);
     client = p2p_server.available();
   }
-  Serial.print("cp22");
+  Serial.print("accept");
   Serial.print('\r');
   Serial.flush();
   while (!client.available()) {  // Ожидание запроса клиента
     delay(10);
   }
-  Serial.print("cp3");
+  Serial.print("ok");
   Serial.print('\r');
   Serial.flush();
 
@@ -812,9 +811,6 @@ void p2pRecieverMode() {
   filename.trim();
   if (!filename.startsWith("/"))
     filename = "/" + filename;
-  Serial.print("cp4");
-  Serial.print('\r');
-  Serial.flush();
 
   Serial.print(filename);
   Serial.print('\r');
@@ -835,14 +831,9 @@ void p2pRecieverMode() {
     sd.initErrorHalt(&Serial);
     goodInited = false;
   }
-  Serial.print("cp5");
-  Serial.print('\r');
-  Serial.flush();
-
+ 
   file = sd.open(filename, MFILE_WRITE);
-  Serial.print("cp6");
-  Serial.print('\r');
-  Serial.flush();
+
 
   for (long ii = 0; ii < size; ii++) {
     while (!client.available())
@@ -851,6 +842,7 @@ void p2pRecieverMode() {
     if (ii % 10000 == 0) {
       float vv = ii / (float)size;
       Serial.print((int)(100 * vv));
+      Serial.print("%");
       Serial.print('\r');
       Serial.flush();
     }
@@ -859,6 +851,8 @@ void p2pRecieverMode() {
   file.close();
   Serial.print("end");
   Serial.print('\r');
+  Serial.flush();
+
   WiFi.mode(WIFI_OFF);  // TURN OFF WIFI
   WiFi.forceSleepBegin();
   ESP.deepSleep(0);
@@ -914,7 +908,7 @@ void p2pSenderMode() {
     }
   }
   delay(500);
-  Serial.print("cp1");
+  Serial.print("server");
   Serial.print("\r");
   Serial.flush();
   delay(500);
@@ -924,7 +918,7 @@ void p2pSenderMode() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
   }
-  Serial.print("cp2");
+  Serial.print("ok");
   Serial.print("\r");
   Serial.flush();
   delay(500);
@@ -938,7 +932,7 @@ void p2pSenderMode() {
   }
   //send file name
   //send data
-  Serial.print("cp3");
+  Serial.print("connected");
   Serial.print("\r");
   Serial.flush();
   delay(500);
@@ -968,12 +962,16 @@ void p2pSenderMode() {
     if (i % 10000 == 0) {
       float vv = i / (float)sz;
       Serial.print((int)(100 * vv));
+      Serial.print("%");
       Serial.print('\r');
       Serial.flush();
     }
   }
   file.close();
-
+  client.flush();
+  client.print("end");
+  client.print('\r');
+  client.flush();
 
   WiFi.mode(WIFI_OFF);  // TURN OFF WIFI
   Serial.print("end");

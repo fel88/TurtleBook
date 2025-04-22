@@ -2121,7 +2121,7 @@ void p2pSenderApplyButtonHandler(int dir) {
     if (v_str == "end")
       break;
 
-    drawOledString(v_str + "%");
+    drawOledString(v_str);
   }
   drawOledString("100%");
 
@@ -2165,7 +2165,7 @@ void p2pApplyButtonHandler(int dir) {
       if (v_str == "end")
         break;
       v_str.trim();
-      drawOledString(v_str + "%");
+      drawOledString(v_str);
     }
     drawOledString("100%");
 
