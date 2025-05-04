@@ -9,6 +9,13 @@
 
 char temp128[128];
 const int triggerDelay = 300;
+uint8_t triggerCounter = 0;
+
+uint8_t OledContrast = 0x5;
+
+const float VoltageShutDownTreshold = 3.05;
+
+uint8_t TriggerCheckDivisor = 25;
 
 #include <Wire.h>
 #define disk 0x50  //адрес чипа FM24C
@@ -127,15 +134,25 @@ String ReadString(int addr) {
 }
 //Analog port 4 (A4) = SDA (serial data)
 //Analog port 5 (A5) = SCL (serial clock)
-#define SIGNAL_PATH_RESET 0x68
-#define I2C_SLV0_ADDR 0x37
+
+
 #define ACCEL_CONFIG 0x1C
 #define MOT_THR 0x1F  // Motion detection threshold bits [7:0]
 #define MOT_DUR 0x20  // Duration counter threshold for motion interrupt generation, 1 kHz rate, LSB = 1 ms
+#define FIFO_EN 0x23
+#define I2C_MST_CTRL 0x24
+#define I2C_SLV0_ADDR 0x37
+#define SIGNAL_PATH_RESET 0x68
 #define MOT_DETECT_CTRL 0x69
 #define INT_ENABLE 0x38
+#define USER_CTRL 0x6A   // Bit 7 enable DMP, bit 3 reset DMP
+#define PWR_MGMT_1 0x6B  // Device defaults to the SLEEP mode
+#define PWR_MGMT_2 0x6C
 #define WHO_AM_I_MPU6050 0x75  // Should return 0x68
 #define INT_STATUS 0x3A
+
+
+
 //when nothing connected to AD0 than address is 0x68
 #define ADO 0
 #if ADO
@@ -458,7 +475,7 @@ void SDCard_ReadCB(const char* Name) {
     pagesTableSectionOffset = GetSectionOffset(file, 0xB0) + 9;
     file.seek(bookInfoSectionOffset);
   }
-  int pages = SDCard_Read32(file);
+  pages = SDCard_Read32(file);
   //  Serial.print("pages: ");
   // Serial.println(pages);
 
@@ -593,6 +610,7 @@ void displayBuffer() {
   EPD_5IN83_V2_Display();
   //EPD_5IN83_Sleep();
 }
+
 void clearOled() {
   u8g2.clearBuffer();  // clear the internal memory
   u8g2.sendBuffer();   // transfer internal memory to the display
@@ -892,13 +910,71 @@ void (*menuButton)(int dir);
 void defaultApplyButtonHandler(int dir);
 void defaultMenuButtonHandler(int dir);
 
+void MeasureLoadVoltage() {
+
+  float shuntVoltage_mV = 0.0;
+  float busVoltage_V = 0.0;
+  ina219.startSingleMeasurement();
+  shuntVoltage_mV = ina219.getShuntVoltage_mV();
+  busVoltage_V = ina219.getBusVoltage_V();
+
+  loadVoltage_V = busVoltage_V + (shuntVoltage_mV / 1000);
+  //ina219.powerDown();
+}
+
+
+bool NeedShutdown() {
+  return loadVoltage_V < VoltageShutDownTreshold;
+}
+
+void Shutdown() {
+  //shut off
+  noInterrupts();
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_mode();
+}
+#define MPU6050_PWR1_SLEEP_BIT 6
+
+void DisableMPU() {
+  writeByte(MPU6050_ADDRESS, INT_ENABLE, 0x00);  // Disable all interrupts
+  writeByte(MPU6050_ADDRESS, FIFO_EN, 0x00);     // Disable FIFO
+
+  writeByte(MPU6050_ADDRESS, I2C_MST_CTRL, 0x00);  // Disable I2C master
+  writeByte(MPU6050_ADDRESS, USER_CTRL, 0x00);     // Disable FIFO and I2C master modes
+  writeByte(MPU6050_ADDRESS, PWR_MGMT_1, 0x40);    // set sleep mode
+}
+
+void EnableMPU() {
+
+  writeByte(MPU6050_ADDRESS, PWR_MGMT_1, 0x00);
+  writeByte(MPU6050_ADDRESS, SIGNAL_PATH_RESET, 0x07);  //Reset all internal signal paths in the MPU-6050 by writing 0x07 to register 0x68;
+  writeByte(MPU6050_ADDRESS, I2C_SLV0_ADDR, 0x20);      //write register 0x37 to select how to use the interrupt pin. For an active high, push-pull signal that stays until register (decimal) 58 is read, write 0x20.
+  writeByte(MPU6050_ADDRESS, ACCEL_CONFIG, 0x01);       //Write register 28 (==0x1C) to set the Digital High Pass Filter, bits 3:0. For example set it to 0x01 for 5Hz. (These 3 bits are grey in the data sheet, but they are used! Leaving them 0 means the filter always outputs 0.)
+  writeByte(MPU6050_ADDRESS, MOT_THR, 5);               //Write the desired Motion threshold to register 0x1F (For example, write decimal 20).
+  writeByte(MPU6050_ADDRESS, MOT_DUR, 40);              //Set motion detect duration to 1  ms; LSB is 1 ms @ 1 kHz rate
+  writeByte(MPU6050_ADDRESS, MOT_DETECT_CTRL, 0x15);    //to register 0x69, write the motion detection decrement and a few other settings (for example write 0x15 to set both free-fall and motion decrements to 1 and accelerometer start-up delay to 5ms total by adding 1ms. )
+  writeByte(MPU6050_ADDRESS, INT_ENABLE, 0x40);         //write register 0x38, bit 6 (0x40), to enable motion detection interrupt.
+  writeByte(MPU6050_ADDRESS, 0x37, 160);                // now INT pin is active low
+}
+
+void UpdateTriggerCheckDivisor() {
+
+  if (loadVoltage_V < 3.4) {
+    TriggerCheckDivisor = 10;
+  } else if (loadVoltage_V < 3.2) {
+    TriggerCheckDivisor = 5;
+  } else if (loadVoltage_V < 3.1) {
+    TriggerCheckDivisor = 2;
+  }
+}
 void setup() {
   applyButton = defaultApplyButtonHandler;
   menuButton = defaultMenuButtonHandler;
 
   width = EPD_5IN83_V2_WIDTH;
   height = EPD_5IN83_V2_HEIGHT;
-
+  randomSeed(analogRead(A0));
   Image_Width_Byte = (width % 8 == 0) ? (width / 8) : (width / 8 + 1);
 
   // clock_prescale_set(clock_div_2);
@@ -913,39 +989,25 @@ void setup() {
   rows -= 5;
   cols -= 5;
 
+
+  pixels.begin();
+  pixels.show();
+
   //pinMode(LED_BUILTIN, OUTPUT);
   // digitalWrite(LED_BUILTIN, LOW);
   if (!ina219.init()) {
     //Serial.println("INA219 not connected!"); b=false;
   }
-  float shuntVoltage_mV = 0.0;
+  ina219.setBusRange(BRNG_16);
+  ina219.setMeasureMode(TRIGGERED);
+  MeasureLoadVoltage();
+  if (NeedShutdown())
+    Shutdown();
 
-  float busVoltage_V = 0.0;
-
-
-
-  shuntVoltage_mV = ina219.getShuntVoltage_mV();
-  busVoltage_V = ina219.getBusVoltage_V();
-
-  loadVoltage_V = busVoltage_V + (shuntVoltage_mV / 1000);
-  ina219.powerDown();
-
-
-  pixels.begin();
-  pixels.show();
-
-  if (loadVoltage_V < 3.05) {
-    //shut off
-
-    noInterrupts();
-
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // PowerDown - самый экономный режим
-    sleep_mode();                         // Переводим МК в сон
-    return;
-  }
+  UpdateTriggerCheckDivisor();
 
   u8g2.begin();
-  u8g2.setContrast(0x5);
+  u8g2.setContrast(OledContrast);
   u8g2.setFlipMode(1);
   u8g2.clearBuffer();  // clear the internal memory
                        /*
@@ -1002,15 +1064,7 @@ void setup() {
 
 #endif
 
-  writeByte(MPU6050_ADDRESS, 0x6B, 0x00);
-  writeByte(MPU6050_ADDRESS, SIGNAL_PATH_RESET, 0x07);  //Reset all internal signal paths in the MPU-6050 by writing 0x07 to register 0x68;
-  writeByte(MPU6050_ADDRESS, I2C_SLV0_ADDR, 0x20);      //write register 0x37 to select how to use the interrupt pin. For an active high, push-pull signal that stays until register (decimal) 58 is read, write 0x20.
-  writeByte(MPU6050_ADDRESS, ACCEL_CONFIG, 0x01);       //Write register 28 (==0x1C) to set the Digital High Pass Filter, bits 3:0. For example set it to 0x01 for 5Hz. (These 3 bits are grey in the data sheet, but they are used! Leaving them 0 means the filter always outputs 0.)
-  writeByte(MPU6050_ADDRESS, MOT_THR, 5);               //Write the desired Motion threshold to register 0x1F (For example, write decimal 20).
-  writeByte(MPU6050_ADDRESS, MOT_DUR, 40);              //Set motion detect duration to 1  ms; LSB is 1 ms @ 1 kHz rate
-  writeByte(MPU6050_ADDRESS, MOT_DETECT_CTRL, 0x15);    //to register 0x69, write the motion detection decrement and a few other settings (for example write 0x15 to set both free-fall and motion decrements to 1 and accelerometer start-up delay to 5ms total by adding 1ms. )
-  writeByte(MPU6050_ADDRESS, INT_ENABLE, 0x40);         //write register 0x38, bit 6 (0x40), to enable motion detection interrupt.
-  writeByte(MPU6050_ADDRESS, 0x37, 160);                // now INT pin is active low
+  EnableMPU();
 
   pinMode(buttonPin, INPUT_PULLUP);                                       // wakePin is pin no. 2
                                                                           //attachInterrupt(digitalPinToInterrupt(buttonPin), myISR2, RISING);
@@ -1231,7 +1285,7 @@ void drawBookmarksList() {
   //u8g2.setFont(u8g2_font_4x6_t_cyrillic); // choose a suitable font
   u8g2.setFont(u8g2_font_9x15_t_cyrillic);  // choose a suitable font
   //u8g2_font_cu12_t_cyrillic
-  u8g2.setContrast(0x5);
+  u8g2.setContrast(OledContrast);
   // Serial.print("getb");
   EPD_5IN83_V2_Power(true);
   Paint_Clear(BLACK);
@@ -1406,7 +1460,7 @@ void drawStatisticsMenu() {
   //u8g2.setFont(u8g2_font_5x8_t_cyrillic);  // choose a suitable font
 
   //u8g2_font_cu12_t_cyrillic
-  u8g2.setContrast(0x5);
+  u8g2.setContrast(OledContrast);
   if (statisticsMenuIdx == 1) {
     u8g2.drawStr(0, 12, "reset counter");
 
@@ -1577,7 +1631,7 @@ void drawFileList() {
   //u8g2.setFont(u8g2_font_4x6_t_cyrillic); // choose a suitable font
   u8g2.setFont(u8g2_font_4x6_t_cyrillic);  // choose a suitable font
   //u8g2_font_cu12_t_cyrillic
-  u8g2.setContrast(0x5);
+  u8g2.setContrast(OledContrast);
   EPD_5IN83_V2_Power(true);
   File root = sd.open(root_dir.c_str());
   Paint_Clear(BLACK);
@@ -1769,7 +1823,7 @@ String getFileN(int n) {
 
 void drawGotoPageMenu() {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_10x20_t_cyrillic);
+  //u8g2.setFont(u8g2_font_10x20_t_cyrillic);
   if (gotoPageMenu == 0)
     u8g2.drawStr(0, 16, "up +1");
   if (gotoPageMenu == 1)
@@ -1781,8 +1835,10 @@ void drawGotoPageMenu() {
   if (gotoPageMenu == 4)
     u8g2.drawStr(0, 16, "up -1");
   if (gotoPageMenu == 5)
-    u8g2.drawStr(0, 16, "goto");
+    u8g2.drawStr(0, 16, "random");
   if (gotoPageMenu == 6)
+    u8g2.drawStr(0, 16, "goto");
+  if (gotoPageMenu == 7)
     u8g2.drawStr(0, 16, "back");
 
 
@@ -1895,12 +1951,13 @@ void processBookMenu() {
     u8g2.clearBuffer();  // clear the internal memory
 
     u8g2.sendBuffer();
-  } else if (bookMenuPos == 8) {  //chapters
+  } else if (bookMenuPos == 8) {  // chapters
     if (tocItems > 0) {
       menuButton = chaptersMenuButtonHandler;
       applyButton = chaptersApplyButtonHandler;
       drawChaptersMenu();
     }
+  } else if (bookMenuPos == 9) {  // voltage shoe
   }
 }
 
@@ -2516,6 +2573,8 @@ void defaultApplyButtonHandler(int dir) {
         //EPD_5IN83_Init();
         if (dir > 0) {
           clearOled();
+
+
           //displayBuffer();
 
           if (outdoorMode) {
@@ -2615,8 +2674,11 @@ void defaultApplyButtonHandler(int dir) {
           gotoPage -= 1;
           drawGotoPageMenu();
         } else if (gotoPageMenu == 5) {
-          GotoPage();
+          gotoPage = random(pages);
+          drawGotoPageMenu();
         } else if (gotoPageMenu == 6) {
+          GotoPage();
+        } else if (gotoPageMenu == 7) {
           menuMode = menuModeEnum::bookMenu;
           bookMenuPos = 0;
           drawBookMenu();
@@ -2692,6 +2754,21 @@ void drawBookMenu() {
     u8g2.drawStr(0, 16, "remove bookmark");
   else if (bookMenuPos == 8)
     u8g2.drawStr(0, 16, "chapters");
+  else if (bookMenuPos == 9) {
+    //ina219.powerUp();
+    MeasureLoadVoltage();
+
+    u8g2.clearBuffer();  // clear the internal memory
+
+    u8g2.drawStr(0, 16, "voltage");
+    //u8g2.setFont(u8g2_font_logisoso18_tr);  // choose a suitable font
+    u8g2.drawStr(0, 30, "V");
+
+    u8g2.setCursor(55, 30);
+    u8g2.print(loadVoltage_V);
+
+    u8g2.sendBuffer();  // transfer internal memory to the display
+  }
 
   u8g2.sendBuffer();
 }
@@ -2822,10 +2899,10 @@ drawFileList();*/
       {
         if (dir > 0) {
           bookMenuPos++;
-          if (bookMenuPos == 9) bookMenuPos = 0;
+          if (bookMenuPos == 10) bookMenuPos = 0;
         } else {
           bookMenuPos--;
-          if (bookMenuPos < 0) bookMenuPos = 8;
+          if (bookMenuPos < 0) bookMenuPos = 9;
         }
         drawBookMenu();
         break;
@@ -2876,7 +2953,7 @@ drawFileList();*/
     case (menuModeEnum::gotoPageMenu):
       {
         gotoPageMenu++;
-        if (gotoPageMenu >= 7) {
+        if (gotoPageMenu >= 8) {
           gotoPageMenu = 0;
         }
         drawGotoPageMenu();
@@ -2958,12 +3035,14 @@ void loop() {
   auto gyroApply = gyrox;  //gyroy for old panel driver2
   auto gyroMenu = gyroz;
   if (trigger) {
+
     if (abs(gyroApply) > abs(gyroMenu)) {
+
       if (gyroApply > threshold) {
         applyButton(applyRevert ? -1 : 1);
         trigger = false;
-      }
-      if (gyroApply < -threshold) {
+
+      } else if (gyroApply < -threshold) {
         applyButton(applyRevert ? 1 : -1);
         trigger = false;
       }
@@ -2972,15 +3051,34 @@ void loop() {
 
         menuButton(-1);
         trigger = false;
-      }
-      if (gyroMenu < -threshold) {
+
+      } else if (gyroMenu < -threshold) {
 
         menuButton(1);
         trigger = false;
       }
     }
-    if (!trigger)
+
+
+    if (!trigger) {
+
+      triggerCounter++;
+      if (triggerCounter == TriggerCheckDivisor) {  //check voltage each TriggerCheckDivisor times
+        triggerCounter = 0;
+        //ina219.powerUp();
+
+        MeasureLoadVoltage();
+        if (NeedShutdown()) {
+          //todo: disable ports, oled, mpu, epd
+          clearOled();
+          DisableMPU();
+
+          Shutdown();
+        }
+        UpdateTriggerCheckDivisor();
+      }
       delay(triggerDelay);
+    }
   }
 
 
@@ -2992,20 +3090,7 @@ void loop() {
   //Serial.print(readdata);
   //Serial.println();
 
-  /*if (btn1) {
-    applyButton();
-    btn1 = false;
-   // delay(500);
-  } else if (btn2) {
-    btn2 = false;
-    menuButton();
-    //delay(500);
-  }*/
+
 
   noInterrupts();  // to disable interrupts
-
-
-  //delay(300);
-  //detachInterrupt(digitalPinToInterrupt(buttonPin));
-  //detachInterrupt(digitalPinToInterrupt(buttonPin3));
 }
