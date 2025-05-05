@@ -7,6 +7,24 @@
 #include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
 
+const byte reverse[256] PROGMEM = {
+  0x00, 0x80, 0x40, 0xC0, 0x20, 0xA0, 0x60, 0xE0, 0x10, 0x90, 0x50, 0xD0, 0x30, 0xB0, 0x70, 0xF0,
+  0x08, 0x88, 0x48, 0xC8, 0x28, 0xA8, 0x68, 0xE8, 0x18, 0x98, 0x58, 0xD8, 0x38, 0xB8, 0x78, 0xF8,
+  0x04, 0x84, 0x44, 0xC4, 0x24, 0xA4, 0x64, 0xE4, 0x14, 0x94, 0x54, 0xD4, 0x34, 0xB4, 0x74, 0xF4,
+  0x0C, 0x8C, 0x4C, 0xCC, 0x2C, 0xAC, 0x6C, 0xEC, 0x1C, 0x9C, 0x5C, 0xDC, 0x3C, 0xBC, 0x7C, 0xFC,
+  0x02, 0x82, 0x42, 0xC2, 0x22, 0xA2, 0x62, 0xE2, 0x12, 0x92, 0x52, 0xD2, 0x32, 0xB2, 0x72, 0xF2,
+  0x0A, 0x8A, 0x4A, 0xCA, 0x2A, 0xAA, 0x6A, 0xEA, 0x1A, 0x9A, 0x5A, 0xDA, 0x3A, 0xBA, 0x7A, 0xFA,
+  0x06, 0x86, 0x46, 0xC6, 0x26, 0xA6, 0x66, 0xE6, 0x16, 0x96, 0x56, 0xD6, 0x36, 0xB6, 0x76, 0xF6,
+  0x0E, 0x8E, 0x4E, 0xCE, 0x2E, 0xAE, 0x6E, 0xEE, 0x1E, 0x9E, 0x5E, 0xDE, 0x3E, 0xBE, 0x7E, 0xFE,
+  0x01, 0x81, 0x41, 0xC1, 0x21, 0xA1, 0x61, 0xE1, 0x11, 0x91, 0x51, 0xD1, 0x31, 0xB1, 0x71, 0xF1,
+  0x09, 0x89, 0x49, 0xC9, 0x29, 0xA9, 0x69, 0xE9, 0x19, 0x99, 0x59, 0xD9, 0x39, 0xB9, 0x79, 0xF9,
+  0x05, 0x85, 0x45, 0xC5, 0x25, 0xA5, 0x65, 0xE5, 0x15, 0x95, 0x55, 0xD5, 0x35, 0xB5, 0x75, 0xF5,
+  0x0D, 0x8D, 0x4D, 0xCD, 0x2D, 0xAD, 0x6D, 0xED, 0x1D, 0x9D, 0x5D, 0xDD, 0x3D, 0xBD, 0x7D, 0xFD,
+  0x03, 0x83, 0x43, 0xC3, 0x23, 0xA3, 0x63, 0xE3, 0x13, 0x93, 0x53, 0xD3, 0x33, 0xB3, 0x73, 0xF3,
+  0x0B, 0x8B, 0x4B, 0xCB, 0x2B, 0xAB, 0x6B, 0xEB, 0x1B, 0x9B, 0x5B, 0xDB, 0x3B, 0xBB, 0x7B, 0xFB,
+  0x07, 0x87, 0x47, 0xC7, 0x27, 0xA7, 0x67, 0xE7, 0x17, 0x97, 0x57, 0xD7, 0x37, 0xB7, 0x77, 0xF7,
+  0x0F, 0x8F, 0x4F, 0xCF, 0x2F, 0xAF, 0x6F, 0xEF, 0x1F, 0x9F, 0x5F, 0xDF, 0x3F, 0xBF, 0x7F, 0xFF
+};
 char temp128[128];
 const int triggerDelay = 300;
 uint8_t triggerCounter = 0;
@@ -36,6 +54,7 @@ Adafruit_NeoPixel pixels(1, NEO_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_EEPROM_I2C i2ceeprom;
 
 bool applyRevert = false;
+bool screensRevert = false;
 
 #define EEPROM_ADDR 0x50  // the default address!
 
@@ -563,27 +582,50 @@ void fastNextPageCB() {
     }
   }
   EPD_5IN83_V2_SendCommand(0x13);
+  if (screensRevert) {
+    for (Y = 0; Y < height; Y++) {  //Total display column
+      file.read(_readBuff, Bmp_Width_Byte);
+      for (X = 0; X < Bmp_Width_Byte; X++) {  //Show a line in the line
+        //file.read(ReadBuff, 1);
 
-  for (Y = 0; Y < height; Y++) {  //Total display column
-    file.read(_readBuff, Bmp_Width_Byte);
-    for (X = 0; X < Bmp_Width_Byte; X++) {  //Show a line in the line
-      //file.read(ReadBuff, 1);
 
+        //ReadBuff[0]=reverse(ReadBuff[0]);
+        if (X >= Image_Width_Byte)
+          break;
 
-      //ReadBuff[0]=reverse(ReadBuff[0]);
-      if (X < Image_Width_Byte) {  //bmp
-        if (Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
+        // if (Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
 
-          Data_Black = _readBuff[X];
-        } else {
-          Data_Black = ~_readBuff[X];
-        }
+        //Data_Black = ~reverse[_readBuff[Bmp_Width_Byte - X - 1]];
+        Data_Black = _readBuff[Bmp_Width_Byte - X - 1];
+        // } else {
+        //   Data_Black = ~_readBuff[X];
+        //  }
         EPD_5IN83_V2_SendData(Data_Black);
       }
+      //bmpFile.read(ReadBuff, 1);
     }
-    //bmpFile.read(ReadBuff, 1);
-  }
+  } else {
+    for (Y = 0; Y < height; Y++) {  //Total display column
+      file.read(_readBuff, Bmp_Width_Byte);
+      for (X = 0; X < Bmp_Width_Byte; X++) {  //Show a line in the line
+        //file.read(ReadBuff, 1);
 
+
+        //ReadBuff[0]=reverse(ReadBuff[0]);
+        if (X >= Image_Width_Byte)
+          break;
+
+        // if (Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
+
+        Data_Black = _readBuff[X];
+        // } else {
+        //   Data_Black = ~_readBuff[X];
+        //  }
+        EPD_5IN83_V2_SendData(Data_Black);
+      }
+      //bmpFile.read(ReadBuff, 1);
+    }
+  }
   EPD_5IN83_V2_Power(false);
 
 
@@ -616,8 +658,8 @@ void clearOled() {
   u8g2.sendBuffer();   // transfer internal memory to the display
 }
 
-void pageBack() {
-  if (cbPage == 0) return;
+void OledSetContrast() {
+  u8g2.setContrast(OledContrast * 4);
 }
 
 void nextPageCB() {
@@ -896,12 +938,22 @@ unsigned char ledColor = 0;
 int eepromApplyRevertAddr = 0x10;
 int eepromLedBrightnessAddr = 0x11;
 int eepromLedColorAddr = 0x12;
+int eepromOledContrastAddr = 0x13;
+int eepromScreensRevertAddr = 0x14;
+
+void checkOledContrasts() {
+
+  if (OledContrast < 1) OledContrast = 1;
+  if (OledContrast > 8) OledContrast = 8;
+}
 
 void readSettingsFromEEPROM() {
-
   applyRevert = EEPROM.read(eepromApplyRevertAddr) == 1;
+  screensRevert = EEPROM.read(eepromScreensRevertAddr) == 1;
   ledBrightness = EEPROM.read(eepromLedBrightnessAddr);
   ledColor = EEPROM.read(eepromLedColorAddr);
+  OledContrast = EEPROM.read(eepromOledContrastAddr);
+  checkOledContrasts();
 }
 
 void (*applyButton)(int dir);
@@ -1005,31 +1057,15 @@ void setup() {
     Shutdown();
 
   UpdateTriggerCheckDivisor();
+  readSettingsFromEEPROM();
 
   u8g2.begin();
-  u8g2.setContrast(OledContrast);
-  u8g2.setFlipMode(1);
-  u8g2.clearBuffer();  // clear the internal memory
-                       /*
-   
-  u8g2.setFont(u8g2_font_logisoso18_tr);  // choose a suitable font
-  u8g2.drawStr(0, 25, "V");
+  OledSetContrast();
+  u8g2.setFlipMode(screensRevert ? 0 : 1);
+  u8g2.clearBuffer();
 
-  u8g2.setCursor(55, 25);
-  u8g2.print(loadVoltage_V);
-
-  u8g2.sendBuffer();
-  delay(1000);*/
-
-
-  /*u8g2.clearBuffer();					// clear the internal memory
-  u8g2.setFont(u8g2_font_logisoso18_tr       );	// choose a suitable font
-  
-  u8g2.drawStr(0,25,"tt World!");	// write something to the internal memory
-  u8g2.sendBuffer();*/
   menuMode = menuModeEnum::bootMenu;
 
-  readSettingsFromEEPROM();
   drawBootMenu(true);
   /*if (fileExist("bookmarks.txt")) {
     menuMode = 5;
@@ -1110,11 +1146,8 @@ void initShield() {
   EPD_5IN83_V2_Init();
   //EPD_5IN83_Clear();
   //Paint_NewImage(IMAGE_BW, EPD_5IN83_WIDTH, EPD_5IN83_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
-  Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+  Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
   SDCard_Init();
-
-
-
 
   if (i2ceeprom.begin(EEPROM_ADDR)) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
     //Serial.println("Found I2C EEPROM");
@@ -1285,7 +1318,7 @@ void drawBookmarksList() {
   //u8g2.setFont(u8g2_font_4x6_t_cyrillic); // choose a suitable font
   u8g2.setFont(u8g2_font_9x15_t_cyrillic);  // choose a suitable font
   //u8g2_font_cu12_t_cyrillic
-  u8g2.setContrast(OledContrast);
+  OledSetContrast();
   // Serial.print("getb");
   EPD_5IN83_V2_Power(true);
   Paint_Clear(BLACK);
@@ -1460,7 +1493,7 @@ void drawStatisticsMenu() {
   //u8g2.setFont(u8g2_font_5x8_t_cyrillic);  // choose a suitable font
 
   //u8g2_font_cu12_t_cyrillic
-  u8g2.setContrast(OledContrast);
+  OledSetContrast();
   if (statisticsMenuIdx == 1) {
     u8g2.drawStr(0, 12, "reset counter");
 
@@ -1497,19 +1530,26 @@ void drawSettingsList() {
   u8g2.setFont(u8g2_font_9x15_t_cyrillic);
   //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
 
-  if (settingsMenuPos == 0)
+  if (settingsMenuPos == 0) {
     u8g2.drawStr(0, 16, "oled brightness");  //1. oled brightness
-  else if (settingsMenuPos == 1)
+
+    sprintf(temp128, "%d", OledContrast);
+    u8g2.drawStr(0, 32, temp128);
+  } else if (settingsMenuPos == 1)
     u8g2.drawStr(0, 16, "resume mode");  //2. resume : from Fram (quick mem) , from sd bookmarks
   else if (settingsMenuPos == 2) {
     u8g2.drawStr(0, 16, "gyr4o X revert");
 
     sprintf(temp128, "%s", applyRevert ? "true" : "false");
     u8g2.drawStr(0, 32, temp128);
-
   } else if (settingsMenuPos == 3) {
     u8g2.drawStr(0, 16, "gyro Y revert");
   } else if (settingsMenuPos == 4) {
+    u8g2.drawStr(0, 16, "screens reverse");
+
+    sprintf(temp128, "%s", screensRevert ? "true" : "false");
+    u8g2.drawStr(0, 32, temp128);
+  } else if (settingsMenuPos == 5) {
     u8g2.drawStr(0, 16, "back");
   }
 
@@ -1631,7 +1671,8 @@ void drawFileList() {
   //u8g2.setFont(u8g2_font_4x6_t_cyrillic); // choose a suitable font
   u8g2.setFont(u8g2_font_4x6_t_cyrillic);  // choose a suitable font
   //u8g2_font_cu12_t_cyrillic
-  u8g2.setContrast(OledContrast);
+
+  OledSetContrast();
   EPD_5IN83_V2_Power(true);
   File root = sd.open(root_dir.c_str());
   Paint_Clear(BLACK);
@@ -1873,7 +1914,7 @@ void processBookMenu() {
     if (outdoorMode) {
       EPD_5IN83_V2_Reset();
       EPD_5IN83_V2_Init();
-      Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+      Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
       SDCard_Init();
     }
 
@@ -2471,6 +2512,18 @@ void defaultApplyButtonHandler(int dir) {
       {
         switch (settingsMenuPos) {
           case 0:
+
+            if (dir > 0)
+              OledContrast++;
+            else
+              OledContrast--;
+
+            checkOledContrasts();
+
+            OledSetContrast();
+
+            EEPROM.put(eepromOledContrastAddr, OledContrast);
+            drawSettingsList();
             break;
           case 1:
             break;
@@ -2478,11 +2531,17 @@ void defaultApplyButtonHandler(int dir) {
             applyRevert = !applyRevert;
 
             EEPROM.put(eepromApplyRevertAddr, (byte)(applyRevert ? 1 : 0));
-            drawBootMenu(false);
+            drawSettingsList();
             break;
           case 3:
             break;
           case 4:
+            screensRevert = !screensRevert;
+
+            EEPROM.put(eepromScreensRevertAddr, (byte)(screensRevert ? 1 : 0));
+            drawSettingsList();
+            break;
+          case 5:
 
             menuMode = menuModeEnum::bootMenu;
             drawBootMenu(false);
@@ -2580,7 +2639,7 @@ void defaultApplyButtonHandler(int dir) {
           if (outdoorMode) {
             EPD_5IN83_V2_Reset();
             EPD_5IN83_V2_Init();
-            Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+            Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
             SDCard_Init();
             SDCard_ReadCB((root_dir + currentBook).c_str());
             fastNextPageCB();
@@ -2645,7 +2704,7 @@ void defaultApplyButtonHandler(int dir) {
 
             EPD_5IN83_V2_Reset();
             //EPD_5IN83_V2_Init(1); //todo: param add to API
-            Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+            Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
             SDCard_Init();
 
             SDCard_ReadBMP((root_dir + currentBook).c_str(), 0, 0);
@@ -2828,7 +2887,7 @@ drawFileList();*/
         EPD_5IN83_V2_Reset();
         EPD_5IN83_V2_Init();
 
-        Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+        Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
 
 
         SDCard_Init();
@@ -2851,10 +2910,10 @@ drawFileList();*/
       {
         if (dir > 0) {
           settingsMenuPos++;
-          if (settingsMenuPos == 5) settingsMenuPos = 0;
+          if (settingsMenuPos == 6) settingsMenuPos = 0;
         } else {
           settingsMenuPos--;
-          if (settingsMenuPos < 0) settingsMenuPos = 4;
+          if (settingsMenuPos < 0) settingsMenuPos = 5;
         }
         drawSettingsList();
         break;
@@ -2945,7 +3004,7 @@ drawFileList();*/
         //u8g2_font_10x20_t_cyrillic
         //u8g2_font_inr24_t_cyrillic
         //u8g2_font_inr27_t_cyrillic
-        u8g2.setFont(u8g2_font_10x20_t_cyrillic);  // choose a suitable font
+        //u8g2.setFont(u8g2_font_10x20_t_cyrillic);  // choose a suitable font
         u8g2.drawStr(0, 16, currentBook.c_str());  // write something to the internal memory
         u8g2.sendBuffer();
         break;
