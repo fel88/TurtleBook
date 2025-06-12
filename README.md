@@ -80,7 +80,14 @@ Components:
 1. Wemos d1 v3 module
 2. PNP transistor 2N3906
 3. resistor 330
-   
+
+### Charger
+
+A shunt regulator based on TL431
+
+![image](https://github.com/user-attachments/assets/ba3a3c69-522f-4461-a93c-c38eecdd8eb2)
+
+
 ### Weight
 
 Approx. 260g (with wemos d1)
