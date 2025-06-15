@@ -181,6 +181,73 @@ const String postForms = "<html>\
     <script src=\"jszip.min.js\" ></script>\
     <script src=\"script.js\" ></script>\
     <script src=\"huff.js\" ></script>\
+     <script type=\"text/javascript\">\
+  document.addEventListener('DOMContentLoaded', function() {\
+     const inputElement = document.querySelector('input[name=\"uploadPathInput\"]');\
+async function upload(file, url) { \
+  const params = new URLSearchParams();\
+   params.append('uploadPathInput', inputElement.value);  \
+     await fetch('/uploadPath', {\
+         method: 'POST',\
+           headers: {\
+           'Content-Type': 'application/x-www-form-urlencoded'\
+       },\
+         body: params,\
+     }) .then(data => {\
+         console.log('Data received:', data);\
+       })  \
+     .catch(error => {\
+         console.error('Error:', error);\
+     });\
+      function formatBytes(bytes) {\
+  if (bytes < 1024) {\
+    return bytes + ' Bytes';\
+  } else if (bytes < 1024 * 1024) {\
+    return (bytes / 1024).toFixed(2) + ' KB';\
+  } else {\
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';\
+  }\
+};\
+  var xhr = new XMLHttpRequest();\
+const progress = document.querySelector(\"[id='progress']\");\
+const uploadStatus = document.querySelector(\"[id='uploadStatus']\");\
+  xhr.upload.onprogress = function(event) {\
+      if (event.lengthComputable) {\
+    progress.style.visibility = \"visible\";\
+    progress.value = ( event.loaded  /  event.total)*100;\
+    uploadStatus.innerText = formatBytes(event.loaded) + ' / ' + formatBytes(event.total)+ ' (' + progress.value.toFixed(1) + '%)';\
+}\
+  };\
+  xhr.onload = xhr.onerror = function() {\
+    progress.style.visibility = \"hidden\";\
+    if (this.status == 200) {\
+     console.log(\"success\");\    
+     uploadStatus.innerText='upload done!';\
+    } else {\
+      console.log(\"error \" + this.status);\
+      uploadStatus.innerText='upload error: '+ this.status;\
+    }\
+  };\
+  uploadStatus.innerText='';\
+  xhr.open(\"POST\", url, true);\
+  xhr.send(file);\
+};\
+const form = document.querySelector(\"[id='uploadForm']\");\
+form.addEventListener('submit', async (event) => {\
+  event.preventDefault();\
+  const formData = new FormData(form);  \
+      upload(formData , form.action);\ 
+    return false;\
+});\
+     const buttons = document.querySelectorAll('button.set-button');\
+      for (let i = 0; i < buttons.length; i++) {\
+          buttons[i].addEventListener('click', function() {\
+                 const previousElement = event.target.previousElementSibling;\
+              inputElement.value = previousElement.innerText;\           
+          });\
+      }\
+});\    
+    </script>\
     <link href=\"styles.css\" rel=\"stylesheet\" />\
   </head>\
   <body>\
@@ -201,7 +268,7 @@ const String postForms = "<html>\
       <input type=\"submit\" value=\"Submit\">\
     </form>\
      <h1>POST form file to /postform/</h1><br>\
-    <form method=\"post\" enctype=\"multipart/form-data\" action=\"/upload\">\
+    <form method=\"post\"  id=\"uploadForm\" enctype=\"multipart/form-data\" action=\"/upload\">\
   <div>\
     <label>Select file to upload</label>\
     <input name='dummy' type=\"file\">\
@@ -211,6 +278,8 @@ const String postForms = "<html>\
   <input name=\"uploadPathInput\" type=\"text\"  />\
   </div>\
   <button id=\"sub1\" >Send</button>\
+     <progress id=\"progress\" max=\"100\" style=\"visibility: hidden\" value=\"0\">0%</progress>\
+      <p id=\"uploadStatus\" ></p>\
   </form>\
      <h1>Download file  /download/</h1><br>\
     <form method=\"get\" enctype=\"multipart/form-data\" action=\"/download/\">\ 
@@ -480,6 +549,27 @@ void handleList() {
   }
   Serial.flush();
 }
+ String upPath ;
+void handleUploadPath() {
+  if (server.method() != HTTP_POST) {
+    // digitalWrite(led, 1);
+    server.send(405, "text/plain", "Method Not Allowed");
+    // digitalWrite(led, 0);
+  } else {
+    //digitalWrite(led, 1);
+    String message = "uploadPath POST form was:\n";
+upPath = server.arg("uploadPathInput");
+    for (uint8_t i = 0; i < server.args(); i++) {
+      message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+      Serial.println(" " + server.argName(i) + ": " + server.arg(i) + "\n");
+      Serial.flush();
+      //sendStringPacket(" " + server.argName(i) + ": " + server.arg(i) );
+    }
+    server.send(200, "text/plain", message);
+    // digitalWrite(led, 0);
+  }
+  Serial.flush();
+}
 
 void handleForm() {
   if (server.method() != HTTP_POST) {
@@ -562,8 +652,10 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
     Serial.println(filename);
     //sendStringPacket("FILE="+String(filename));
 
-    String upPath = server.arg("uploadPathInput");
+    //String upPath = server.arg("uploadPathInput");
     filename = upPath + filename;
+    if (upPath.endsWith("/"))
+      upPath.remove(upPath.length() - 1, 1);
 
     Serial.print("upload path:");
     Serial.println(upPath);
@@ -625,7 +717,9 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
     Serial.print("totalbts Size: ");
     Serial.println(totalbts);
     //  server.sendHeader("Location","/success.html");      // Redirect the client to the success page
-    server.send(303);
+    //server.send(303);
+     server.send(200);
+
   } else {
     server.send(500, "text/plain", "500: couldn't create file");
   }
@@ -704,7 +798,7 @@ void recDir(FsFile* tdir, String path) {
     String filename = String(f_name);
     if (file.isDir()) {
 
-      recDir(&file, path + '/' + dname);
+      recDir(&file, (path.endsWith("/") ? path : (path + "/")) + filename);
       //middle += "<p><a href=\"#\" onclick=\"alert('" + filename + "');\">" + filename + "</a></p>";
 
       // Indicate a directory.
@@ -772,7 +866,7 @@ IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 void p2pRecieverMode() {
-  
+
   WiFi.mode(WIFI_AP);
   WiFi.setOutputPower(0);
   WiFi.softAPConfig(ip, gateway, subnet);
@@ -831,7 +925,7 @@ void p2pRecieverMode() {
     sd.initErrorHalt(&Serial);
     goodInited = false;
   }
- 
+
   file = sd.open(filename, MFILE_WRITE);
 
 
@@ -1098,6 +1192,7 @@ void setup() {
   server.on("/postplain/", handlePlain);
   server.on("/download/", File_Download);
   server.on("/postform/", handleForm);
+  server.on("/uploadPath", handleUploadPath);
 
   server.on("/list/", handleList);
 
