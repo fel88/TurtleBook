@@ -83,9 +83,9 @@ Components:
 
 ### Charger
 
-A shunt regulator based on TL431 (adjust the output voltage level to ~3.95-3.98V)
+A pass (series) regulator based on TL431 (adjust the output voltage level to ~3.95-3.98V)
 
-![image](https://github.com/user-attachments/assets/ba3a3c69-522f-4461-a93c-c38eecdd8eb2)
+![charger5](https://github.com/user-attachments/assets/a7a9190b-997a-478e-9110-a0ad8f0da7ad)
 
 
 ### Weight
