@@ -118,7 +118,9 @@ This book has some distinctions from the default e-reader and satisfy my needs b
    - Eink for reading and small OLED for quick response menu operations
 
 
-Also It was inspired by my old project https://github.com/fel88/BIP and couple of github projects (https://hackaday.io/project/189366-supercaps-solar-panel-project/details) solar panel + supercap (https://github.com/aresta/Supercaps  it seems that it was moved to https://github.com/aresta/ESP32-C3_Supercaps )
+### Pre-history
+
+It was inspired by my old project https://github.com/fel88/BIP and couple of github projects (https://hackaday.io/project/189366-supercaps-solar-panel-project/details) solar panel + supercap (https://github.com/aresta/Supercaps  it seems that it was moved to https://github.com/aresta/ESP32-C3_Supercaps )
 
 Great quote from Aresta/Supercaps project:
 ![image](https://github.com/user-attachments/assets/18651167-2490-474c-9cd1-44f70db3f667)
