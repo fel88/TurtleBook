@@ -85,7 +85,18 @@ Components:
 
 A pass (series) regulator based on TL431 (adjust the output voltage level to ~3.95-3.98V)
 
+Components:
+1. resistor 330Ohm, 47kOhm
+2. TL431
+3. D882 (almost any NPN will do)
+4. MAX40203
+5. Pot 47kOhm
+
+   
 ![charger5](https://github.com/user-attachments/assets/a7a9190b-997a-478e-9110-a0ad8f0da7ad)
+
+<img src="https://github.com/user-attachments/assets/1be9f826-257e-4922-aa21-57da1e37be66" width="500"  />
+
 
 
 ### Weight
