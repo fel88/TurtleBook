@@ -281,7 +281,6 @@ enum class menuModeEnum {
   settings,      //8- settings list
   statistics,    //9- statistics menu
   led
-
 } menuMode;
 
 
@@ -958,9 +957,11 @@ void readSettingsFromEEPROM() {
 
 void (*applyButton)(int dir);
 void (*menuButton)(int dir);
+void (*auxMenuButton)(int dir);
 
 void defaultApplyButtonHandler(int dir);
 void defaultMenuButtonHandler(int dir);
+void defaultAuxMenuButtonHandler(int dir);
 
 void MeasureLoadVoltage() {
 
@@ -1020,9 +1021,15 @@ void UpdateTriggerCheckDivisor() {
     TriggerCheckDivisor = 2;
   }
 }
-void setup() {
+
+void resetButtonHandlersToDefault() {
   applyButton = defaultApplyButtonHandler;
   menuButton = defaultMenuButtonHandler;
+  auxMenuButton = defaultAuxMenuButtonHandler;
+}
+
+void setup() {
+  resetButtonHandlersToDefault();
 
   width = EPD_5IN83_V2_WIDTH;
   height = EPD_5IN83_V2_HEIGHT;
@@ -1587,7 +1594,24 @@ void drawLedMenu() {
 
 int p2pMaxItems = 3;
 int p2pMenuIdx = 0;
+int filesAuxMenuIdx = 0;
 bool serial3started = false;
+
+void drawFilesAuxMenu() {
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15_t_cyrillic);
+  //u8g2.setFont(u8g2_font_4x6_t_cyrillic);
+
+  if (filesAuxMenuIdx == 0) {
+    u8g2.drawStr(0, 16, "[back]");
+
+  } else if (filesAuxMenuIdx == 1) {
+    u8g2.drawStr(0, 16, "delete");
+  }
+  u8g2.sendBuffer();
+}
+
 
 void drawP2PMenu() {
 
@@ -2328,14 +2352,13 @@ void p2pApplyButtonHandler(int dir) {
     //todo back to menu
     clearOled();
     Serial3.end();
-    applyButton = defaultApplyButtonHandler;
-    menuButton = defaultMenuButtonHandler;
+    resetButtonHandlersToDefault();
   }
 }
 
 void chaptersApplyButtonHandler(int dir) {
-  applyButton = defaultApplyButtonHandler;
-  menuButton = defaultMenuButtonHandler;
+  resetButtonHandlersToDefault();
+
   if (chaptersMenuIdx == 0) {  //back
 
     //menuButton(1);
@@ -2846,6 +2869,36 @@ void p2pMenuButtonHandler(int dir) {
   drawP2PMenu();
 }
 
+
+void filesAuxMenuApplyButtonHandler(int dir) {
+
+  if (filesAuxMenuIdx == 0) {
+    resetButtonHandlersToDefault();
+    drawFileList();
+  } else if (filesAuxMenuIdx == 1) {
+    //remove selected file
+    //todo: ask are you sure?
+    File file = sd.open((root_dir + currentBook).c_str(), MFILE_WRITE);
+    if (file) {
+      //Serial.print("remove file");
+      file.remove();
+    }
+    resetButtonHandlersToDefault();
+    drawFileList();
+  }
+}
+
+void filesAuxMenuButtonHandler(int dir) {
+  if (dir > 0) {
+    filesAuxMenuIdx++;
+    if (filesAuxMenuIdx == 1 + 1) filesAuxMenuIdx = 0;
+  } else {
+    filesAuxMenuIdx--;
+    if (filesAuxMenuIdx < 0) filesAuxMenuIdx = 1;
+  }
+  drawFilesAuxMenu();
+}
+
 void chaptersMenuButtonHandler(int dir) {
   if (dir > 0) {
     chaptersMenuIdx++;
@@ -2857,6 +2910,15 @@ void chaptersMenuButtonHandler(int dir) {
   drawChaptersMenu();
 }
 
+void defaultAuxMenuButtonHandler(int dir) {
+  //override menu/apply handlers here
+  filesAuxMenuIdx = 0;
+  applyButton = filesAuxMenuApplyButtonHandler;
+  menuButton = filesAuxMenuButtonHandler;
+
+
+  drawFilesAuxMenu();
+}
 void defaultMenuButtonHandler(int dir) {
   //b=!b;
   //digitalWrite(LED_BUILTIN, b?HIGH:LOW);
@@ -3093,28 +3155,54 @@ void loop() {
   gyroz = (float)gyroCount[2] * gRes;
   auto gyroApply = gyrox;  //gyroy for old panel driver2
   auto gyroMenu = gyroz;
+  int biggestIdx = -1;
+
+  float biggestVal = -999;
+  float biggestAbsVal = -999;
+
+  bool mask[3] = { true, true, true };
+  if (menuMode != menuModeEnum::files) {
+    mask[1] = false;
+  }
+
+  for (int i = 0; i < 3; i++) {
+    if (!mask[i])
+      continue;
+    auto val = (float)gyroCount[i] * gRes;
+    if (abs(val) > biggestAbsVal || biggestIdx == -1) {
+      biggestVal = val;
+      biggestAbsVal = abs(val);
+      biggestIdx = i;
+    }
+  }
+
   if (trigger) {
 
-    if (abs(gyroApply) > abs(gyroMenu)) {
+    if (biggestAbsVal > threshold) {
 
-      if (gyroApply > threshold) {
-        applyButton(applyRevert ? -1 : 1);
-        trigger = false;
+      bool dir = biggestVal > 0 ? false : true;
+      switch (biggestIdx) {
+        case 0:
+          {
+            if (applyRevert)
+              dir = !dir;
 
-      } else if (gyroApply < -threshold) {
-        applyButton(applyRevert ? 1 : -1);
-        trigger = false;
-      }
-    } else {
-      if (gyroMenu > threshold) {
-
-        menuButton(-1);
-        trigger = false;
-
-      } else if (gyroMenu < -threshold) {
-
-        menuButton(1);
-        trigger = false;
+            applyButton(dir ? 1 : -1);
+            trigger = false;
+          }
+          break;
+        case 1:
+          {
+            auxMenuButton(dir ? 1 : -1);
+            trigger = false;
+          }
+          break;
+        case 2:
+          {
+            menuButton(dir ? 1 : -1);
+            trigger = false;
+          }
+          break;
       }
     }
 
