@@ -83,9 +83,20 @@ Components:
 
 ### Charger
 
-A shunt regulator based on TL431 (adjust the output voltage level to ~3.95-3.98V)
+A pass (series) regulator based on TL431 (adjust the output voltage level to ~3.95-3.98V)
 
-![image](https://github.com/user-attachments/assets/ba3a3c69-522f-4461-a93c-c38eecdd8eb2)
+Components:
+1. resistor 330Ohm, 47kOhm
+2. TL431
+3. D882 (almost any NPN will do)
+4. MAX40203
+5. Pot 47kOhm
+
+   
+![charger5](https://github.com/user-attachments/assets/a7a9190b-997a-478e-9110-a0ad8f0da7ad)
+
+<img src="https://github.com/user-attachments/assets/1be9f826-257e-4922-aa21-57da1e37be66" width="500"  />
+
 
 
 ### Weight
@@ -118,7 +129,9 @@ This book has some distinctions from the default e-reader and satisfy my needs b
    - Eink for reading and small OLED for quick response menu operations
 
 
-Also It was inspired by my old project https://github.com/fel88/BIP and couple of github projects (https://hackaday.io/project/189366-supercaps-solar-panel-project/details) solar panel + supercap (https://github.com/aresta/Supercaps  it seems that it was moved to https://github.com/aresta/ESP32-C3_Supercaps )
+### Pre-history
+
+It was inspired by my old project https://github.com/fel88/BIP and couple of github projects (https://hackaday.io/project/189366-supercaps-solar-panel-project/details) solar panel + supercap (https://github.com/aresta/Supercaps  it seems that it was moved to https://github.com/aresta/ESP32-C3_Supercaps )
 
 Great quote from Aresta/Supercaps project:
 ![image](https://github.com/user-attachments/assets/18651167-2490-474c-9cd1-44f70db3f667)
