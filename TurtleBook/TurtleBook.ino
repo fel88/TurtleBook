@@ -85,6 +85,8 @@ void FramWriteLong(int addr, long val) {
 }
 //#define USE_DEBUG 0
 
+int perSessionPages = 0;
+
 //FRAM addresses
 const int TotalPagesFramAddress = 0;
 const int CounterPagesFramAddress = 4;
@@ -93,6 +95,7 @@ const int BookmarkPageFramAddress = 10;
 const int BookmarkFilenameFramAddress = 12;
 
 ///////
+int bookMenuStatisticIdx = 0;  //0-voltage,1-mV/page,2-pages,3-startup voltage
 
 void FM24C_write(unsigned int startAddress, void* data, unsigned int len) {  // адрес, указатель на первый байт, длина в байтах
   Wire.beginTransmission(disk);
@@ -639,6 +642,7 @@ void fastNextPageCB() {
   total++;
   //FM24C_write(TotalPagesFramAddress, &total, sizeof(total));
   FramWriteLong(TotalPagesFramAddress, total);
+  perSessionPages++;
 }
 
 
@@ -929,6 +933,7 @@ uint8_t readByte(uint8_t address, uint8_t subAddress) {
   return data;                            // Return data read from slave register
 }
 
+float startupLoadVoltage_V = 0.0;
 float loadVoltage_V = 0.0;
 unsigned char ledBrightness = 64;
 bool ledEnabled = false;
@@ -1060,8 +1065,11 @@ void setup() {
   ina219.setBusRange(BRNG_16);
   ina219.setMeasureMode(TRIGGERED);
   MeasureLoadVoltage();
+
   if (NeedShutdown())
     Shutdown();
+
+  startupLoadVoltage_V = loadVoltage_V;
 
   UpdateTriggerCheckDivisor();
   readSettingsFromEEPROM();
@@ -1925,7 +1933,7 @@ void onePageBack() {
   fastNextPageCB();
 }
 
-void processBookMenu() {
+void processBookMenu(int dir) {
   if (bookMenuPos == 2) {
     u8g2.clearBuffer();                       // clear the internal memory
     u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
@@ -2022,7 +2030,17 @@ void processBookMenu() {
       applyButton = chaptersApplyButtonHandler;
       drawChaptersMenu();
     }
-  } else if (bookMenuPos == 9) {  // voltage shoe
+  } else if (bookMenuPos == 9) {  // voltage and statistic
+    if (dir > 0) {
+      bookMenuStatisticIdx++;
+      bookMenuStatisticIdx %= 4;
+    } else {
+      bookMenuStatisticIdx--;
+      if (bookMenuStatisticIdx < 0) {
+        bookMenuStatisticIdx = 3;
+      }
+    }
+    drawBookMenu();
   }
 }
 
@@ -2647,7 +2665,7 @@ void defaultApplyButtonHandler(int dir) {
       }
     case menuModeEnum::bookMenu:
       {
-        processBookMenu();
+        processBookMenu(dir);
         break;
       }
     case menuModeEnum::CB:
@@ -2841,13 +2859,37 @@ void drawBookMenu() {
     MeasureLoadVoltage();
 
     u8g2.clearBuffer();  // clear the internal memory
-
+    auto voltage_diff = startupLoadVoltage_V - loadVoltage_V;
+    auto perPageVoltageDrop = voltage_diff / perSessionPages;
     u8g2.drawStr(0, 16, "voltage");
-    //u8g2.setFont(u8g2_font_logisoso18_tr);  // choose a suitable font
-    u8g2.drawStr(0, 30, "V");
+    switch (bookMenuStatisticIdx) {
+      case 0:
+        //u8g2.setFont(u8g2_font_logisoso18_tr);  // choose a suitable font
+        u8g2.drawStr(0, 30, "V");
+        u8g2.setCursor(55, 30);
+        u8g2.print(loadVoltage_V);
+        break;
+      case 1:
 
-    u8g2.setCursor(55, 30);
-    u8g2.print(loadVoltage_V);
+        u8g2.drawStr(0, 30, "mV/p");
+        u8g2.setCursor(55, 30);
+        u8g2.print(perPageVoltageDrop * 1000);  //milliVolt per page
+
+        break;
+      case 2:
+
+        u8g2.drawStr(0, 30, "pages");
+        u8g2.setCursor(55, 30);
+        u8g2.print(perSessionPages);
+
+        break;
+      case 3:
+        u8g2.drawStr(0, 30, "V");
+        u8g2.setCursor(55, 30);
+        u8g2.print(startupLoadVoltage_V);
+        break;
+    }
+
 
     u8g2.sendBuffer();  // transfer internal memory to the display
   }
