@@ -35,7 +35,8 @@ WYSIWYG e-book.
 - Solar panel (something like this https://aliexpress.ru/item/1005008193807038.html?sku_id=12000044193770138)
 - Buck-boost converter (https://aliexpress.ru/item/1005001525710076.html)
 - NeoPixel (not necessarily)
-- Other stuff: diode (1N5817), transistor (2N2222), resistors, etc
+- TL431 SOT89
+- Ideal diodes (MAX40203), transistor (D882), resistors, etc
 - Wires (https://aliexpress.ru/item/32793368381.html?sku_id=64310577090)
 
 ### How to assemble PCB 
