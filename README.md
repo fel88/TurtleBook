@@ -40,6 +40,11 @@ WYSIWYG e-book.
 
 ### How to assemble PCB 
 
+#### Panel driver PCB v4.0 (Charger + Wifi integrated)
+
+<img src="https://github.com/user-attachments/assets/9b24b3ea-a282-4fbd-931f-6a6ded69d2e2" width="75%"  />
+
+#### Panel driver PCB v3.0 (no charger, no wifi)
 ![image](https://github.com/user-attachments/assets/c51009ef-ac24-424c-9be7-da2aa96eabaf)
 
 You need next components to solder PCB board:
