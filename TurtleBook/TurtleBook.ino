@@ -41,7 +41,7 @@ uint8_t TriggerCheckDivisor = 25;
 #define WEMOS_PMOS_PIN 11
 
 // Which pin on the Arduino is connected to the NeoPixels?
-#define NEO_PIN 10  // todo: change to 14/15
+#define NEO_PIN 7  // todo: change to 14/15
 // When setting up the NeoPixel library, we tell it how many pixels,
 // and which pin to use to send signals. Note that for older NeoPixel
 // strips you might need to change the third parameter -- see the
@@ -607,23 +607,25 @@ void fastNextPageCB() {
       //bmpFile.read(ReadBuff, 1);
     }
   } else {
+    auto limit=min (Bmp_Width_Byte,Image_Width_Byte);
     for (Y = 0; Y < height; Y++) {  //Total display column
       file.read(_readBuff, Bmp_Width_Byte);
-      for (X = 0; X < Bmp_Width_Byte; X++) {  //Show a line in the line
+      
+      for (X = 0; X < limit; X++) {  //Show a line in the line
         //file.read(ReadBuff, 1);
 
 
         //ReadBuff[0]=reverse(ReadBuff[0]);
-        if (X >= Image_Width_Byte)
-          break;
+        //if (X >= Image_Width_Byte)
+          //break;
 
         // if (Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
 
-        Data_Black = _readBuff[X];
+        //Data_Black = _readBuff[X];
         // } else {
         //   Data_Black = ~_readBuff[X];
         //  }
-        EPD_5IN83_V2_SendData(Data_Black);
+        EPD_5IN83_V2_SendData(_readBuff[X]);
       }
       //bmpFile.read(ReadBuff, 1);
     }
@@ -2365,7 +2367,7 @@ void p2pApplyButtonHandler(int dir) {
     //
   } else if (p2pMenuIdx == 3) {
     //disable wemos
-    digitalWrite(WEMOS_PMOS_PIN, HIGH);
+    digitalWrite(WEMOS_PMOS_PIN, LOW);
     pinMode(WEMOS_PMOS_PIN, INPUT);
     //todo back to menu
     clearOled();
@@ -2629,7 +2631,7 @@ void defaultApplyButtonHandler(int dir) {
           initWifiMode();
 
           pinMode(WEMOS_PMOS_PIN, OUTPUT);
-          digitalWrite(WEMOS_PMOS_PIN, LOW);
+          digitalWrite(WEMOS_PMOS_PIN, HIGH);
           //noInterrupts();
 
           menuButton = p2pMenuButtonHandler;
@@ -2717,9 +2719,10 @@ void defaultApplyButtonHandler(int dir) {
           currentBookIdx = 0;
           drawFileList();
         } else {
+ 		  auto lowerCase = currentBook;
+          lowerCase.toLowerCase();
 
-
-          if (currentBook.endsWith(".CB") || currentBook.endsWith(".cb")) {
+          if (lowerCase.endsWith(".cb")) {
             menuMode = menuModeEnum::CB;
             SDCard_ReadCB((root_dir + currentBook).c_str());
             cbPage = 0;
@@ -2730,12 +2733,12 @@ void defaultApplyButtonHandler(int dir) {
             // nextPageCB();
             //sendToDisplay();
             fastNextPageCB();
-          } else if (currentBook.endsWith(".TXT")) {
+          } else if (lowerCase.endsWith(".txt")) {
             file = sd.open((root_dir + currentBook), O_READ);
             pages = file.size() / (rows * cols);
             menuMode = menuModeEnum::textBook;
             nextPage();
-          } else if (currentBook.endsWith(".bmp") || currentBook.endsWith(".BMP")) {
+          } else if (lowerCase.endsWith(".bmp")) {
             menuMode = menuModeEnum::bmp;
 
             clearOled();
