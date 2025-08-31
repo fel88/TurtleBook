@@ -109,7 +109,8 @@ const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 //#elif  ENABLE_DEDICATED_SPI
 //#define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SPI_CLOCK)
 //#else  // HAS_SDIO_CLASS
-#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI, SPI_CLOCK)
+//#define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI, SPI_CLOCK)
+#define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SPI_CLOCK)
 //#endif  // HAS_SDIO_CLASS
 
 UBYTE my_DEV_Module_Init(void) {
@@ -163,6 +164,7 @@ ExFile file;
 SdFs sd;
 FsFile dir;
 FsFile file;
+FsFile sfile;
 #else  // SD_FAT_TYPE
 #error invalid SD_FAT_TYPE
 #endif  // SD_FAT_TYPE
@@ -174,17 +176,30 @@ FsFile file;
 
 const String postForms = "<html>\
   <head>\
-    <title>BOOK Web Server POST handling</title>\
+    <title>Turtle Book Web Server</title>\
     <style>\
       body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
     </style>\
-    <script src=\"jszip.min.js\" ></script>\
+   <!-- <script src=\"jszip.min.js\" ></script>\
     <script src=\"script.js\" ></script>\
-    <script src=\"huff.js\" ></script>\
+    <script src=\"huff.js\" ></script>-->\
      <script type=\"text/javascript\">\
+function msToTime(duration) {\
+     var milliseconds = Math.floor((duration % 1000) / 100),\
+    seconds = Math.floor((duration / 1000) % 60),\
+    minutes = Math.floor((duration / (1000 * 60)) % 60),\
+    hours = Math.floor((duration / (1000 * 60 * 60)) % 24);\
+  hours = (hours < 10) ? \"0\" + hours : hours;\
+  minutes = (minutes < 10) ? \"0\" + minutes : minutes;\
+  seconds = (seconds < 10) ? \"0\" + seconds : seconds;\
+  return hours + \":\" + minutes + \":\" + seconds + \".\" + milliseconds;\
+     }\
+     let startTime = performance.now();\
   document.addEventListener('DOMContentLoaded', function() {\
      const inputElement = document.querySelector('input[name=\"uploadPathInput\"]');\
+       const rleEnabledElement = document.querySelector('input[name=\"rleEnabled\"]');\
 async function upload(file, url) { \
+ startTime = performance.now();\
   const params = new URLSearchParams();\
    params.append('uploadPathInput', inputElement.value);  \
      await fetch('/uploadPath', {\
@@ -222,7 +237,8 @@ const uploadStatus = document.querySelector(\"[id='uploadStatus']\");\
     progress.style.visibility = \"hidden\";\
     if (this.status == 200) {\
      console.log(\"success\");\    
-     uploadStatus.innerText='upload done!';\
+const endTime = performance.now();\   
+      uploadStatus.innerText='upload done!  Upload time: '+msToTime(endTime - startTime);\
     } else {\
       console.log(\"error \" + this.status);\
       uploadStatus.innerText='upload error: '+ this.status;\
@@ -277,6 +293,8 @@ form.addEventListener('submit', async (event) => {\
   <label>Upload path</label>\
   <input name=\"uploadPathInput\" type=\"text\"  />\
   </div>\
+   <div>  <label>Auto RLE</label>\
+ <input name=\"rleEnabled\" type=\"checkbox\">  </div>\
   <button id=\"sub1\" >Send</button>\
      <progress id=\"progress\" max=\"100\" style=\"visibility: hidden\" value=\"0\">0%</progress>\
       <p id=\"uploadStatus\" ></p>\
@@ -330,6 +348,7 @@ void handlePlain() {
 
 short huff[2048];  // 2n, 2n+1;  -1 not setted but has childs, -2 has not childs, >0 terminate symbol node
 
+#define MFILE_APPEND (O_WRONLY | O_CREAT | O_AT_END | O_APPEND)
 #define MFILE_WRITE (O_RDWR | O_CREAT | O_AT_END)
 #define MFILE_READ (O_RDONLY)
 #define MFILE_OWR (O_WRONLY)
@@ -374,6 +393,10 @@ void decodeZCB(String filename) {
     int len = file.read();
     Serial.print("dic len: ");
     Serial.println(len);
+
+    if (len == 0)
+      continue;
+
     p = 0;  //binary tree index
     for (int j = 0; j < len; j++) {
       int pp = file.read();
@@ -663,25 +686,26 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
     Serial.print("filename store:");
     Serial.println(filename);
 
-    file = sd.open(filename, MFILE_WRITE);
+    file = sd.open(filename, MFILE_APPEND);
+    //file.preAllocate(6);
     lastUploadedFilePath = filename;
 
     Serial.println("file opened: ");
     Serial.print(filename);
     Serial.println();
 
-    delay(packetAfterDelay);
+    //delay(packetAfterDelay);
     packetsSended++;
     //fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
     filename = String();
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     totalbts += upload.currentSize;
     //if(fsUploadFile)
-    if ((totalbts / 1000000) % 4) {
+    //  if ((totalbts / 1000000) % 4) {
       //Serial.print("current size: "); Serial.println(upload.currentSize);
-      Serial.print("current size: ");
-      Serial.println(totalbts);
-    }
+    // Serial.print("current size: ");
+    //Serial.println(totalbts);
+    //}
     //sendStringPacket("FILE="+String(filename));
     //sendPacket(18);
 
@@ -696,9 +720,11 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
       if(remains>0){
       sendPacket(upload.buf,fullP*256,remains);packetsSended++;
       delay(packetAfterDelay);}*/
-    for (int i = 0; i < upload.currentSize; i++) {
+    /*for (int i = 0; i < upload.currentSize; i++) {
       file.write(upload.buf[i]);
-    }
+    }*/
+
+    file.write(upload.buf, upload.currentSize);
 
     //fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
   } else if (upload.status == UPLOAD_FILE_END) {
@@ -1243,6 +1269,8 @@ void setup() {
     } else {
       Serial.println("Done!");
     }
+  }else{
+      middle += "<h2> SD bad inited</h2>";
   }
   Serial.println("middle:");
   Serial.println(middle);
