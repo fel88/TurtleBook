@@ -607,17 +607,17 @@ void fastNextPageCB() {
       //bmpFile.read(ReadBuff, 1);
     }
   } else {
-    auto limit=min (Bmp_Width_Byte,Image_Width_Byte);
+    auto limit = min(Bmp_Width_Byte, Image_Width_Byte);
     for (Y = 0; Y < height; Y++) {  //Total display column
       file.read(_readBuff, Bmp_Width_Byte);
-      
+
       for (X = 0; X < limit; X++) {  //Show a line in the line
         //file.read(ReadBuff, 1);
 
 
         //ReadBuff[0]=reverse(ReadBuff[0]);
         //if (X >= Image_Width_Byte)
-          //break;
+        //break;
 
         // if (Paint_Image.Image_Color == IMAGE_COLOR_POSITIVE) {
 
@@ -658,13 +658,38 @@ void displayBuffer() {
   //EPD_5IN83_Sleep();
 }
 
+// value from 0 to 7, higher values more brighter
+void setSSD1306VcomDeselect(uint8_t v) {
+  u8x8_cad_StartTransfer(u8g2.getU8x8());
+  u8x8_cad_SendCmd(u8g2.getU8x8(), 0x0db);
+  u8x8_cad_SendArg(u8g2.getU8x8(), v << 4);
+  u8x8_cad_EndTransfer(u8g2.getU8x8());
+}
+
+// p1: 1..15, higher values, more darker, however almost no difference with 3 or more
+// p2: 1..15, higher values, more brighter
+void setSSD1306PreChargePeriod(uint8_t p1, uint8_t p2) {
+  u8x8_cad_StartTransfer(u8g2.getU8x8());
+  u8x8_cad_SendCmd(u8g2.getU8x8(), 0x0d9);
+  u8x8_cad_SendArg(u8g2.getU8x8(), (p2 << 4) | p1);
+  u8x8_cad_EndTransfer(u8g2.getU8x8());
+}
+
 void clearOled() {
   u8g2.clearBuffer();  // clear the internal memory
   u8g2.sendBuffer();   // transfer internal memory to the display
 }
 
 void OledSetContrast() {
-  u8g2.setContrast(OledContrast * 4);
+  if (OledContrast < 4) {
+    setSSD1306PreChargePeriod(15, 1);
+    setSSD1306VcomDeselect(0);
+    u8g2.setContrast(0);
+  } else {
+    setSSD1306PreChargePeriod(1, 15);
+    setSSD1306VcomDeselect(7);
+    u8g2.setContrast(OledContrast * 4);
+  }
 }
 
 void nextPageCB() {
@@ -1066,6 +1091,7 @@ void setup() {
   }
   ina219.setBusRange(BRNG_16);
   ina219.setMeasureMode(TRIGGERED);
+
   MeasureLoadVoltage();
 
   if (NeedShutdown())
@@ -1617,6 +1643,8 @@ void drawFilesAuxMenu() {
     u8g2.drawStr(0, 16, "[back]");
 
   } else if (filesAuxMenuIdx == 1) {
+    u8g2.drawStr(0, 16, "bookmarks");
+  } else if (filesAuxMenuIdx == 2) {
     u8g2.drawStr(0, 16, "delete");
   }
   u8g2.sendBuffer();
@@ -1934,25 +1962,45 @@ void onePageBack() {
   fastDisplayBuffer();
   fastNextPageCB();
 }
+int yesNoDialogMenuIdx = 0;
+void drawCloseBookDialogMenu() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
+  u8g2.drawStr(0, 16, "save bookmark?");
+
+  if (yesNoDialogMenuIdx == 0)
+    u8g2.drawStr(0, 32, "[no]");
+  if (yesNoDialogMenuIdx == 1) {
+    u8g2.drawStr(0, 32, "[yes]");
+  }
+
+  u8g2.sendBuffer();
+}
+
+
 
 void processBookMenu(int dir) {
   if (bookMenuPos == 2) {
-    u8g2.clearBuffer();                       // clear the internal memory
-    u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
+    applyButton = closeBookApplyButtonHandler;
+    menuButton = closeBookMenuButtonHandler;
+    yesNoDialogMenuIdx = 0;
+    drawCloseBookDialogMenu();
+    // u8g2.clearBuffer();                       // clear the internal memory
+    // u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
 
-    u8g2.drawStr(0, 16, "Wait..");  // write something to the internal memory
-    u8g2.sendBuffer();              // transfer internal memory to the display
+    // u8g2.drawStr(0, 16, "Wait..");  // write something to the internal memory
+    // u8g2.sendBuffer();              // transfer internal memory to the display
 
-    menuMode = menuModeEnum::files;
-    file.close();
-    if (outdoorMode) {
-      EPD_5IN83_V2_Reset();
-      EPD_5IN83_V2_Init();
-      Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
-      SDCard_Init();
-    }
+    // menuMode = menuModeEnum::files;
+    // file.close();
+    // if (outdoorMode) {
+    //   EPD_5IN83_V2_Reset();
+    //   EPD_5IN83_V2_Init();
+    //   Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+    //   SDCard_Init();
+    // }
 
-    drawFileList();
+    // drawFileList();
   } else if (bookMenuPos == 1) {
     menuMode = menuModeEnum::gotoPageMenu;
     gotoPage = 0;
@@ -2719,7 +2767,7 @@ void defaultApplyButtonHandler(int dir) {
           currentBookIdx = 0;
           drawFileList();
         } else {
- 		  auto lowerCase = currentBook;
+          auto lowerCase = currentBook;
           lowerCase.toLowerCase();
 
           if (lowerCase.endsWith(".cb")) {
@@ -2914,6 +2962,54 @@ void p2pMenuButtonHandler(int dir) {
   drawP2PMenu();
 }
 
+void closeBook() {
+  u8g2.clearBuffer();                       // clear the internal memory
+  u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
+
+  u8g2.drawStr(0, 16, "Wait..");  // write something to the internal memory
+  u8g2.sendBuffer();              // transfer internal memory to the display
+
+  file.close();
+
+  menuMode = menuModeEnum::files;
+  if (outdoorMode) {
+
+    EPD_5IN83_V2_Reset();
+    EPD_5IN83_V2_Init();
+    Paint_NewImage(IMAGE_BW, EPD_5IN83_V2_WIDTH, EPD_5IN83_V2_HEIGHT, screensRevert ? IMAGE_ROTATE_180 : IMAGE_ROTATE_0, IMAGE_COLOR_INVERTED);
+    SDCard_Init();
+  }
+  drawFileList();
+}
+
+void closeBookApplyButtonHandler(int dir) {
+
+  if (yesNoDialogMenuIdx == 0) {  //no
+    resetButtonHandlersToDefault();
+    closeBook();
+
+  } else if (yesNoDialogMenuIdx == 1) {  //yes
+    resetButtonHandlersToDefault();
+    saveBookmark(cbPage - 2);
+
+    closeBook();
+  }
+}
+
+void closeBookMenuButtonHandler(int dir) {
+  if (dir > 0) {
+    yesNoDialogMenuIdx++;
+    if (yesNoDialogMenuIdx == 2)
+      yesNoDialogMenuIdx = 0;
+  } else {
+    yesNoDialogMenuIdx--;
+    if (yesNoDialogMenuIdx < 0)
+      yesNoDialogMenuIdx = 1;
+  }
+  drawCloseBookDialogMenu();
+}
+
+
 
 void filesAuxMenuApplyButtonHandler(int dir) {
 
@@ -2921,6 +3017,11 @@ void filesAuxMenuApplyButtonHandler(int dir) {
     resetButtonHandlersToDefault();
     drawFileList();
   } else if (filesAuxMenuIdx == 1) {
+    resetButtonHandlersToDefault();
+    menuMode = menuModeEnum::bookmarks;
+
+    drawBookmarksList();
+  } else if (filesAuxMenuIdx == 2) {
     //remove selected file
     //todo: ask are you sure?
     File file = sd.open((root_dir + currentBook).c_str(), MFILE_WRITE);
@@ -2932,14 +3033,15 @@ void filesAuxMenuApplyButtonHandler(int dir) {
     drawFileList();
   }
 }
+int filesAuxMenuMaxIdx = 2;
 
 void filesAuxMenuButtonHandler(int dir) {
   if (dir > 0) {
     filesAuxMenuIdx++;
-    if (filesAuxMenuIdx == 1 + 1) filesAuxMenuIdx = 0;
+    if (filesAuxMenuIdx == filesAuxMenuMaxIdx + 1) filesAuxMenuIdx = 0;
   } else {
     filesAuxMenuIdx--;
-    if (filesAuxMenuIdx < 0) filesAuxMenuIdx = 1;
+    if (filesAuxMenuIdx < 0) filesAuxMenuIdx = filesAuxMenuMaxIdx;
   }
   drawFilesAuxMenu();
 }
@@ -2956,6 +3058,9 @@ void chaptersMenuButtonHandler(int dir) {
 }
 
 void defaultAuxMenuButtonHandler(int dir) {
+  if (menuMode != menuModeEnum::files)
+    return;
+
   //override menu/apply handlers here
   filesAuxMenuIdx = 0;
   applyButton = filesAuxMenuApplyButtonHandler;
