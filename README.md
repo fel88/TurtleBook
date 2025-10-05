@@ -101,8 +101,6 @@ Components:
    
 ![charger5](https://github.com/user-attachments/assets/a7a9190b-997a-478e-9110-a0ad8f0da7ad)
 
-<img src="https://github.com/user-attachments/assets/1be9f826-257e-4922-aa21-57da1e37be66" width="500"  />
-
 
 
 ### Weight
