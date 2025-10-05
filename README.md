@@ -75,8 +75,8 @@ Use https://github.com/fel88/pdf2eink
 
 You can add Wemos D1 v3 module in order to use Wifi 
 
+<img width="1280" height="960" alt="изображение" src="https://github.com/user-attachments/assets/62f24142-546b-44f3-9bc4-bb0df75ac8af" />
 
-<img src="https://github.com/user-attachments/assets/8100f600-fab7-446a-a428-500a60b89aca" width="500"  />
 
 There are two ways of WiFi usage at the moment:
 1. Wifi Access point: Web page (upload, download books). Use your phone/laptop to load books via browser
