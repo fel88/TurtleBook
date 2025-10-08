@@ -41,9 +41,8 @@ WYSIWYG e-book.
 
 ### How to assemble PCB 
 
-#### Panel driver PCB v4.0 (Charger + Wifi integrated)
-
-<img src="https://github.com/user-attachments/assets/9b24b3ea-a282-4fbd-931f-6a6ded69d2e2" width="75%"  />
+#### Panel driver PCB v5.0 (SRAM + Charger + Wifi integrated)
+<img width="1180" height="512" alt="изображение" src="https://github.com/user-attachments/assets/d8c0ad74-5851-4b35-940f-2586feff86bc" />
 
 #### Panel driver PCB v3.0 (no charger, no wifi)
 ![image](https://github.com/user-attachments/assets/c51009ef-ac24-424c-9be7-da2aa96eabaf)
