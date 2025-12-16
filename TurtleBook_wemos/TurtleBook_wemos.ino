@@ -850,18 +850,20 @@ void File_Download() {  // This gets called twice, the first pass selects the in
   Serial.print("dpath : ");
   Serial.println(dPath);
 
-  file = sd.open(dPath, MFILE_READ);
+  if(file = sd.open(dPath, MFILE_READ)){
   server.sendHeader("Content-Type", "application/octet-stream");
   server.sendHeader("Content-Disposition", "attachment; filename=\"" + dPath + "\"");
   server.sendHeader("Connection", "close");
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  unsigned long long fsize = file.size();
+  server.setContentLength(fsize);
   char data[128];
 
 
-  server.send(200, "application/octet-stream", "");
-
+  //server.send(200, "application/octet-stream", "");
+  server.streamFile(file, "application/octet-stream");
+/*
   int size = 0;
-  for (long i = 0; i < file.size(); i++) {
+  for (long i = 0; i < fsize; i++) {
 
     data[size] = file.read();
     size++;
@@ -872,9 +874,10 @@ void File_Download() {  // This gets called twice, the first pass selects the in
   }
   if (size > 0) {
     server.sendContent(data, size);
-  }
+  }*/
   //server.streamFile(file, "application/octet-stream");
   file.close();
+  }
 
   //else SelectInput("Enter filename to download","download","download");
 }

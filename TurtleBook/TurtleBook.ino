@@ -221,6 +221,9 @@ File file;
 bool outdoorMode = false;
 
 String root_dir = "/";
+String cut_file_path = "/";  //path to cut file
+String cut_file_name = "";   //file name of cut file
+
 sFONT* font = &Font12;
 
 int fontHeight = 12;
@@ -1646,6 +1649,10 @@ void drawFilesAuxMenu() {
     u8g2.drawStr(0, 16, "bookmarks");
   } else if (filesAuxMenuIdx == 2) {
     u8g2.drawStr(0, 16, "delete");
+  } else if (filesAuxMenuIdx == 3) {
+    u8g2.drawStr(0, 16, "cut");
+  } else if (filesAuxMenuIdx == 4) {
+    u8g2.drawStr(0, 16, "paste");
   }
   u8g2.sendBuffer();
 }
@@ -3009,7 +3016,15 @@ void closeBookMenuButtonHandler(int dir) {
   drawCloseBookDialogMenu();
 }
 
+void oledDrawAndShow(const char* str) {
+  u8g2.clearBuffer();                       // clear the internal memory
+  u8g2.setFont(u8g2_font_cu12_t_cyrillic);  // choose a suitable font
 
+  u8g2.drawStr(0, 16, str);  // write something to the internal memory
+
+  //display.display();
+  u8g2.sendBuffer();  // transfer internal memory to the display
+}
 
 void filesAuxMenuApplyButtonHandler(int dir) {
 
@@ -3031,9 +3046,30 @@ void filesAuxMenuApplyButtonHandler(int dir) {
     }
     resetButtonHandlersToDefault();
     drawFileList();
+  } else if (filesAuxMenuIdx == 3) {  //cut
+                                      //cut selected file
+                                      //todo: ask are you sure?
+    if (currentBook != "..") {
+      cut_file_path = root_dir;
+      cut_file_name = currentBook;
+
+      resetButtonHandlersToDefault();
+      oledDrawAndShow("done");
+
+
+      //drawFileList();
+    }
+  } else if (filesAuxMenuIdx == 4) {  //paste
+                                      //paste file
+                                      //todo: ask are you sure?
+    sd.rename(cut_file_path + cut_file_name, root_dir + cut_file_name);
+
+    resetButtonHandlersToDefault();
+    drawFileList();
+    //}
   }
 }
-int filesAuxMenuMaxIdx = 2;
+int filesAuxMenuMaxIdx = 4;
 
 void filesAuxMenuButtonHandler(int dir) {
   if (dir > 0) {
