@@ -572,7 +572,7 @@ void handleList() {
   }
   Serial.flush();
 }
- String upPath ;
+String upPath;
 void handleUploadPath() {
   if (server.method() != HTTP_POST) {
     // digitalWrite(led, 1);
@@ -581,7 +581,7 @@ void handleUploadPath() {
   } else {
     //digitalWrite(led, 1);
     String message = "uploadPath POST form was:\n";
-upPath = server.arg("uploadPathInput");
+    upPath = server.arg("uploadPathInput");
     for (uint8_t i = 0; i < server.args(); i++) {
       message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
       Serial.println(" " + server.argName(i) + ": " + server.arg(i) + "\n");
@@ -686,6 +686,13 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
     Serial.print("filename store:");
     Serial.println(filename);
 
+    if (!sd.mkdir(upPath, true)) {
+      // Handle directory creation error
+      //  sd.errorHhalt("Directory creation failed");
+    } else {
+      //Serial.println("Directory ensured to exist: " + String(dirPath));
+    }
+
     file = sd.open(filename, MFILE_APPEND);
     //file.preAllocate(6);
     lastUploadedFilePath = filename;
@@ -702,7 +709,7 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
     totalbts += upload.currentSize;
     //if(fsUploadFile)
     //  if ((totalbts / 1000000) % 4) {
-      //Serial.print("current size: "); Serial.println(upload.currentSize);
+    //Serial.print("current size: "); Serial.println(upload.currentSize);
     // Serial.print("current size: ");
     //Serial.println(totalbts);
     //}
@@ -744,7 +751,7 @@ void handleFileUpload() {  // upload a new file to the SPIFFS
     Serial.println(totalbts);
     //  server.sendHeader("Location","/success.html");      // Redirect the client to the success page
     //server.send(303);
-     server.send(200);
+    server.send(200);
 
   } else {
     server.send(500, "text/plain", "500: couldn't create file");
@@ -850,33 +857,26 @@ void File_Download() {  // This gets called twice, the first pass selects the in
   Serial.print("dpath : ");
   Serial.println(dPath);
 
-  if(file = sd.open(dPath, MFILE_READ)){
-  server.sendHeader("Content-Type", "application/octet-stream");
-  server.sendHeader("Content-Disposition", "attachment; filename=\"" + dPath + "\"");
-  server.sendHeader("Connection", "close");
-  unsigned long long fsize = file.size();
-  server.setContentLength(fsize);
-  char data[128];
+  if (file = sd.open(dPath, MFILE_READ)) {
+    server.sendHeader("Content-Type", "application/octet-stream");
+    server.sendHeader("Content-Disposition", "attachment; filename=\"" + dPath + "\"");
+    server.sendHeader("Connection", "close");
+    unsigned long long fsize = file.size();
+    server.setContentLength(fsize);
+    char data[128];
 
 
-  //server.send(200, "application/octet-stream", "");
-  server.streamFile(file, "application/octet-stream");
-/*
-  int size = 0;
-  for (long i = 0; i < fsize; i++) {
+    server.send(200, "application/octet-stream", "");
+    //server.streamFile(file, "application/octet-stream");
 
-    data[size] = file.read();
-    size++;
-    if (size == 128) {
-      server.sendContent(data, size);
-      size = 0;
+    int size = 0;
+    while (file.available()) {
+      size_t bytesRead = file.read(data, 128);
+      server.sendContent(data, bytesRead);
     }
-  }
-  if (size > 0) {
-    server.sendContent(data, size);
-  }*/
-  //server.streamFile(file, "application/octet-stream");
-  file.close();
+
+
+    file.close();
   }
 
   //else SelectInput("Enter filename to download","download","download");
@@ -1272,8 +1272,8 @@ void setup() {
     } else {
       Serial.println("Done!");
     }
-  }else{
-      middle += "<h2> SD bad inited</h2>";
+  } else {
+    middle += "<h2> SD bad inited</h2>";
   }
   Serial.println("middle:");
   Serial.println(middle);

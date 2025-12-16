@@ -1092,8 +1092,8 @@ void setup() {
   if (!ina219.init()) {
     //Serial.println("INA219 not connected!"); b=false;
   }
-  ina219.setBusRange(BRNG_16);
-  ina219.setMeasureMode(TRIGGERED);
+  ina219.setBusRange(INA219_BRNG_16);
+  ina219.setMeasureMode(INA219_TRIGGERED);
 
   MeasureLoadVoltage();
 
@@ -3039,17 +3039,26 @@ void filesAuxMenuApplyButtonHandler(int dir) {
   } else if (filesAuxMenuIdx == 2) {
     //remove selected file
     //todo: ask are you sure?
-    File file = sd.open((root_dir + currentBook).c_str(), MFILE_WRITE);
-    if (file) {
-      //Serial.print("remove file");
-      file.remove();
+    if (currentBook != "..") {
+      if (isDir) {
+        sd.rmdir((root_dir + currentBook).c_str());
+
+      } else {
+        sd.remove((root_dir + currentBook).c_str());
+        /*
+        File file = sd.open((root_dir + currentBook).c_str(), MFILE_WRITE);
+        if (file) {
+          //Serial.print("remove file");
+          file.remove();
+        }*/
+      }
+      resetButtonHandlersToDefault();
+      drawFileList();
     }
-    resetButtonHandlersToDefault();
-    drawFileList();
   } else if (filesAuxMenuIdx == 3) {  //cut
                                       //cut selected file
                                       //todo: ask are you sure?
-    if (currentBook != "..") {
+    if (currentBook != ".." && !isDir) {
       cut_file_path = root_dir;
       cut_file_name = currentBook;
 
