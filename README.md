@@ -3,7 +3,7 @@
 "_One book to read them all_"
 
 
-<img src="https://github.com/user-attachments/assets/cdd71b99-7dde-4aa5-97ef-0ec9ed0dbf69" width="49%"  />
+<img src="https://github.com/user-attachments/assets/cdd71b99-7dde-4aa5-97ef-0ec9ed0dbf69" width="69%"  />
 
 
 
