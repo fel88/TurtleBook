@@ -3,17 +3,9 @@
 "_One book to read them all_"
 
 
-<img src="https://github.com/user-attachments/assets/48db12a7-f70f-418a-9c70-ea67828a12ac" width="49%"  />
-<br/>
 <img src="https://github.com/user-attachments/assets/cdd71b99-7dde-4aa5-97ef-0ec9ed0dbf69" width="49%"  />
 
 
-<br/>
-<img src="https://github.com/user-attachments/assets/834d9b57-e441-4399-a74a-d50caecb808d" width="200"  />
-<img src="https://github.com/user-attachments/assets/31bb9521-6a11-493c-bf02-1f4a64062a83" width="200"  />
-
-<img src="https://github.com/user-attachments/assets/b57e9fb0-8926-4ada-921e-aba7ac638fbe" width="200"  />
-<img src="https://github.com/user-attachments/assets/657d3588-7098-4fa6-a373-ae8c5ec83855" width="200"  />
 
 Zero buttons, solar powered, fully autonomous and hermetic e-book reader.
 
@@ -43,12 +35,12 @@ WYSIWYG e-book.
 - Ideal diodes (MAX40203), transistor (D882), resistors, etc
 - Wires (https://aliexpress.ru/item/32793368381.html?sku_id=64310577090)
 
-### How to assemble PCB 
+## How to assemble PCB 
 
-#### Panel driver PCB v5.0 (SRAM + Charger + Wifi integrated)
+### Panel driver PCB v5.0 (SRAM + Charger + Wifi integrated)
 <img width="1180" height="512" alt="изображение" src="https://github.com/user-attachments/assets/d8c0ad74-5851-4b35-940f-2586feff86bc" />
 
-#### Panel driver PCB v3.0 (no charger, no wifi)
+### Panel driver PCB v3.0 (no charger, no wifi)
 ![image](https://github.com/user-attachments/assets/c51009ef-ac24-424c-9be7-da2aa96eabaf)
 
 You need next components to solder PCB board:
@@ -59,22 +51,24 @@ You need next components to solder PCB board:
 5. Crystal quartz
 6. FRAM
    
-### How to switch pages?
+## How to switch pages?
 
 
 https://github.com/user-attachments/assets/5e0592eb-202e-4b6f-8b21-0b80249d7fce
 
-### How many pages can I read?
+## How many pages can I read?
 
 If you have 3 LIC charged to 3.88V you can read about 880 pages (LICs will be discharged to 3.05V)
 
-### How to convert books?
-Use https://github.com/fel88/pdf2eink
+## How to convert books?
+There are two options to convert (fb2/pdf/djvu/raw → cb): 
+1. https://github.com/fel88/pdf2eink 
+2. https://github.com/fel88/bookloader 
 
-### Sample books
+## Sample books
 <a href="https://github.com/fel88/TurtleBook/blob/main/samples/nemo.zip">Twenty Thousand Leagues Under the Seas (Jules Verne)</a>
 
-### Wifi (optional)
+## Wifi (optional)
 
 You can add Wemos D1 v3 module in order to use Wifi 
 
@@ -90,7 +84,7 @@ Components:
 2. PNP transistor 2N3906
 3. resistor 330
 
-### Charger
+## Charger
 
 A pass (series) regulator based on TL431 (adjust the output voltage level to ~3.95-3.98V)
 
@@ -106,11 +100,22 @@ Components:
 
 
 
-### Weight
+## Weight
 
 Approx. 260g (with wemos d1)
 
-### History
+## Gallery
+
+<img src="https://github.com/user-attachments/assets/48db12a7-f70f-418a-9c70-ea67828a12ac" width="200"  />
+
+<img src="https://github.com/user-attachments/assets/834d9b57-e441-4399-a74a-d50caecb808d" width="200"  />
+<img src="https://github.com/user-attachments/assets/31bb9521-6a11-493c-bf02-1f4a64062a83" width="200"  />
+
+<img src="https://github.com/user-attachments/assets/b57e9fb0-8926-4ada-921e-aba7ac638fbe" width="200"  />
+<img src="https://github.com/user-attachments/assets/657d3588-7098-4fa6-a373-ae8c5ec83855" width="200"  />
+
+
+## History
 
 I am a big fan of reading books, so I've decided to make a small contribution to the world of e-readers .
 
@@ -136,10 +141,11 @@ This book has some distinctions from the default e-reader and satisfy my needs b
    - Eink for reading and small OLED for quick response menu operations
 
 
-### Pre-history
+## Pre-history
 
 It was inspired by my old project https://github.com/fel88/BIP and couple of github projects (https://hackaday.io/project/189366-supercaps-solar-panel-project/details) solar panel + supercap (https://github.com/aresta/Supercaps  it seems that it was moved to https://github.com/aresta/ESP32-C3_Supercaps )
 
 Great quote from Aresta/Supercaps project:
 ![image](https://github.com/user-attachments/assets/18651167-2490-474c-9cd1-44f70db3f667)
+
 
