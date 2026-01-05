@@ -2,14 +2,18 @@
 
 "_One book to read them all_"
 
-<img src="https://github.com/user-attachments/assets/834d9b57-e441-4399-a74a-d50caecb808d" width="500"  />
+
+<img src="https://github.com/user-attachments/assets/48db12a7-f70f-418a-9c70-ea67828a12ac" width="49%"  />
+<br/>
+<img src="https://github.com/user-attachments/assets/cdd71b99-7dde-4aa5-97ef-0ec9ed0dbf69" width="49%"  />
+
 
 <br/>
+<img src="https://github.com/user-attachments/assets/834d9b57-e441-4399-a74a-d50caecb808d" width="200"  />
 <img src="https://github.com/user-attachments/assets/31bb9521-6a11-493c-bf02-1f4a64062a83" width="200"  />
 
 <img src="https://github.com/user-attachments/assets/b57e9fb0-8926-4ada-921e-aba7ac638fbe" width="200"  />
 <img src="https://github.com/user-attachments/assets/657d3588-7098-4fa6-a373-ae8c5ec83855" width="200"  />
-
 
 Zero buttons, solar powered, fully autonomous and hermetic e-book reader.
 
